@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="勤務管理">
+    <title>勤務管理</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(to bottom, #0f172a, #1e293b);
+            color: white;
+            min-height: 100vh;
+            padding: 16px;
+            padding-top: env(safe-area-inset-top, 16px);
+            padding-bottom: env(safe-area-inset-bottom, 16px);
+        }
+        
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .header .today-total {
+            color: #94a3b8;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+        
+        .main-panel {
+            background: #1e293b;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 24px;
+            border: none;
+            border-radius: 12px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            transition: all 0.2s;
+        }
+        
+        .btn:active {
+            transform: scale(0.98);
+        }
+        
+        .btn-start {
+            background: #22c55e;
+            color: white;
+        }
+        
+        .btn-start:hover {
+            background: #16a34a;
+        }
+        
+        .btn-end {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .btn-end:hover {
+            background: #dc2626;
+        }
+        
+        .btn-secondary {
+            background: #334155;
+            color: white;
+            padding: 12px;
+            font-size: 16px;
+            margin-bottom: 16px;
+        }
+        
+        .btn-secondary:hover {
+            background: #475569;
+        }
+        
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 14px;
+            width: auto;
+        }
+        
+        .btn-blue {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .btn-gray {
+            background: #475569;
+            color: white;
+        }
+        
+        .working-status {
+            text-align: center;
+            margin-bottom: 16px;
+        }
+        
+        .working-status .label {
+            color: #94a3b8;
+            font-size: 14px;
+        }
+        
+        .working-status .time {
+            font-size: 24px;
+            font-family: monospace;
+            color: #4ade80;
+        }
+        
+        .form-panel {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        
+        .form-row {
+            margin-bottom: 12px;
+        }
+        
+        .form-row label {
+            display: block;
+            font-size: 12px;
+            color: #94a3b8;
+            margin-bottom: 4px;
+        }
+        
+        .form-row input {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            background: #334155;
+            color: white;
+            font-size: 16px;
+        }
+        
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        
+        .btn-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        
+        .btn-row .btn {
+            flex: 1;
+        }
+        
+        .records-title {
+            font-size: 18px;
+            color: #cbd5e1;
+            margin-bottom: 12px;
+        }
+        
+        .record-card {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        
+        .record-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        
+        .record-date {
+            font-size: 14px;
+            color: #94a3b8;
+        }
+        
+        .record-time {
+            font-size: 18px;
+            font-family: monospace;
+            margin: 4px 0;
+        }
+        
+        .record-duration {
+            font-size: 14px;
+            color: #60a5fa;
+        }
+        
+        .record-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .icon-btn {
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 8px;
+            background: #334155;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+        
+        .icon-btn:hover {
+            background: #475569;
+        }
+        
+        .icon-btn.edit {
+            color: #60a5fa;
+        }
+        
+        .icon-btn.delete {
+            color: #f87171;
+        }
+        
+        .empty-state {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+            color: #64748b;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 32px;
+            font-size: 12px;
+            color: #64748b;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        /* アイコン用SVG */
+        .icon {
+            width: 24px;
+            height: 24px;
+        }
+        
+        .icon-large {
+            width: 32px;
+            height: 32px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- ヘッダー -->
+        <div class="header">
+            <h1>
+                <svg class="icon-large" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                勤務管理
+            </h1>
+            <p class="today-total">本日の勤務時間: <span id="todayTotal">0時間0分</span></p>
+        </div>
+        
+        <!-- メインパネル -->
+        <div class="main-panel">
+            <div id="startPanel">
+                <button class="btn btn-start" onclick="handleStart()">
+                    <svg class="icon-large" viewBox="0 0 24 24" fill="white">
+                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                    出勤
+                </button>
+            </div>
+            <div id="workingPanel" class="hidden">
+                <div class="working-status">
+                    <p class="label">勤務中</p>
+                    <p class="time" id="workingTime">00:00 〜</p>
+                </div>
+                <button class="btn btn-end" onclick="handleEnd()">
+                    <svg class="icon-large" viewBox="0 0 24 24" fill="white">
+                        <rect x="6" y="6" width="12" height="12"></rect>
+                    </svg>
+                    退勤
+                </button>
+            </div>
+        </div>
+        
+        <!-- 記録追加ボタン -->
+        <button class="btn btn-secondary" onclick="toggleAddForm()">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            過去の記録を追加
+        </button>
+        
+        <!-- 追加フォーム -->
+        <div id="addForm" class="form-panel hidden">
+            <div class="form-row">
+                <label>日付</label>
+                <input type="date" id="addDate">
+            </div>
+            <div class="form-grid">
+                <div class="form-row">
+                    <label>開始時刻</label>
+                    <input type="time" id="addStartTime">
+                </div>
+                <div class="form-row">
+                    <label>終了時刻</label>
+                    <input type="time" id="addEndTime">
+                </div>
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-small btn-blue" onclick="handleAddRecord()">💾 保存</button>
+                <button class="btn btn-small btn-gray" onclick="toggleAddForm()">✕ キャンセル</button>
+            </div>
+        </div>
+        
+        <!-- 記録一覧 -->
+        <h2 class="records-title">勤務記録</h2>
+        <div id="recordsList"></div>
+        
+        <!-- フッター -->
+        <div class="footer">
+            <p>※ データはこのデバイスに保存されます</p>
+            <p>ホーム画面に追加するとアプリのように使えます</p>
+        </div>
+    </div>
+    
+    <script>
+        // データ管理
+        let records = JSON.parse(localStorage.getItem('workRecords') || '[]');
+        let currentSession = JSON.parse(localStorage.getItem('currentSession') || 'null');
+        
+        // 保存
+        function saveData() {
+            localStorage.setItem('workRecords', JSON.stringify(records));
+            localStorage.setItem('currentSession', JSON.stringify(currentSession));
+        }
+        
+        // 日付フォーマット
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+            return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}(${weekdays[date.getDay()]})`;
+        }
+        
+        // 時刻フォーマット
+        function formatTime(dateStr) {
+            const date = new Date(dateStr);
+            return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+        }
+        
+        // 勤務時間計算
+        function calculateDuration(start, end) {
+            if (!start || !end) return '-';
+            const diff = new Date(end) - new Date(start);
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            return `${hours}時間${minutes}分`;
+        }
+        
+        // 本日の合計計算
+        function updateTodayTotal() {
+            const today = new Date().toDateString();
+            let total = 0;
+            records.forEach(record => {
+                if (new Date(record.startTime).toDateString() === today && record.endTime) {
+                    total += new Date(record.endTime) - new Date(record.startTime);
+                }
+            });
+            if (currentSession) {
+                total += new Date() - new Date(currentSession.startTime);
+            }
+            const hours = Math.floor(total / (1000 * 60 * 60));
+            const minutes = Math.floor((total % (1000 * 60 * 60)) / (1000 * 60));
+            document.getElementById('todayTotal').textContent = `${hours}時間${minutes}分`;
+        }
+        
+        // 出勤
+        function handleStart() {
+            currentSession = {
+                id: Date.now(),
+                startTime: new Date().toISOString(),
+                endTime: null
+            };
+            saveData();
+            updateUI();
+        }
+        
+        // 退勤
+        function handleEnd() {
+            if (currentSession) {
+                currentSession.endTime = new Date().toISOString();
+                records.unshift(currentSession);
+                currentSession = null;
+                saveData();
+                updateUI();
+            }
+        }
+        
+        // 追加フォームトグル
+        function toggleAddForm() {
+            const form = document.getElementById('addForm');
+            form.classList.toggle('hidden');
+            if (!form.classList.contains('hidden')) {
+                document.getElementById('addDate').value = new Date().toISOString().split('T')[0];
+            }
+        }
+        
+        // 記録追加
+        function handleAddRecord() {
+            const date = document.getElementById('addDate').value;
+            const startTime = document.getElementById('addStartTime').value;
+            const endTime = document.getElementById('addEndTime').value;
+            
+            if (date && startTime) {
+                const record = {
+                    id: Date.now(),
+                    startTime: new Date(`${date}T${startTime}`).toISOString(),
+                    endTime: endTime ? new Date(`${date}T${endTime}`).toISOString() : null
+                };
+                records.unshift(record);
+                records.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+                saveData();
+                toggleAddForm();
+                document.getElementById('addDate').value = '';
+                document.getElementById('addStartTime').value = '';
+                document.getElementById('addEndTime').value = '';
+                updateUI();
+            }
+        }
+        
+        // 記録編集
+        function handleEdit(id) {
+            const record = records.find(r => r.id === id);
+            if (!record) return;
+            
+            const date = new Date(record.startTime).toISOString().split('T')[0];
+            const startTime = formatTime(record.startTime);
+            const endTime = record.endTime ? formatTime(record.endTime) : '';
+            
+            const newDate = prompt('日付 (YYYY-MM-DD):', date);
+            if (newDate === null) return;
+            
+            const newStartTime = prompt('開始時刻 (HH:MM):', startTime);
+            if (newStartTime === null) return;
+            
+            const newEndTime = prompt('終了時刻 (HH:MM):', endTime);
+            if (newEndTime === null) return;
+            
+            const index = records.findIndex(r => r.id === id);
+            records[index] = {
+                ...record,
+                startTime: new Date(`${newDate}T${newStartTime}`).toISOString(),
+                endTime: newEndTime ? new Date(`${newDate}T${newEndTime}`).toISOString() : null
+            };
+            records.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+            saveData();
+            updateUI();
+        }
+        
+        // 記録削除
+        function handleDelete(id) {
+            if (confirm('この記録を削除しますか？')) {
+                records = records.filter(r => r.id !== id);
+                saveData();
+                updateUI();
+            }
+        }
+        
+        // UI更新
+        function updateUI() {
+            // 出勤/退勤パネル
+            const startPanel = document.getElementById('startPanel');
+            const workingPanel = document.getElementById('workingPanel');
+            
+            if (currentSession) {
+                startPanel.classList.add('hidden');
+                workingPanel.classList.remove('hidden');
+                document.getElementById('workingTime').textContent = `${formatTime(currentSession.startTime)} 〜`;
+            } else {
+                startPanel.classList.remove('hidden');
+                workingPanel.classList.add('hidden');
+            }
+            
+            // 記録一覧
+            const listContainer = document.getElementById('recordsList');
+            if (records.length === 0) {
+                listContainer.innerHTML = '<div class="empty-state">まだ記録がありません</div>';
+            } else {
+                listContainer.innerHTML = records.map(record => `
+                    <div class="record-card">
+                        <div class="record-header">
+                            <div>
+                                <p class="record-date">${formatDate(record.startTime)}</p>
+                                <p class="record-time">${formatTime(record.startTime)} 〜 ${record.endTime ? formatTime(record.endTime) : '勤務中'}</p>
+                                <p class="record-duration">${calculateDuration(record.startTime, record.endTime)}</p>
+                            </div>
+                            <div class="record-actions">
+                                <button class="icon-btn edit" onclick="handleEdit(${record.id})">✏️</button>
+                                <button class="icon-btn delete" onclick="handleDelete(${record.id})">🗑️</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            
+            updateTodayTotal();
+        }
+        
+        // 初期化
+        updateUI();
+        
+        // 1分ごとに本日の合計を更新
+        setInterval(updateTodayTotal, 60000);
+    </script>
+</body>
+</html>
