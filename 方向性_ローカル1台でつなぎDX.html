@@ -131,8 +131,8 @@
   <!-- 1. 状況整理 -->
   <div class="sec">
     <div class="sec-head"><span class="no">CONTEXT</span><h2>まず現状の整理</h2></div>
-    <div class="warn"><strong>試したAI議事録は津軽弁を全く聞き取れず、実用に届かなかった</strong>。市販の「議事録SaaS」は標準日本語モデル前提で、方言・地域訛りに弱い。かといって、方言対応をベンダー任せにするのは待ちが長い。</div>
-    <div class="good"><strong>解決策：STT（音声→文字）とLLM（要約・整形）を分離</strong>し、<strong>ローカルPCの上で「複数のAI」を組み合わせる</strong>。津軽弁は「文字化 → LLMで標準日本語へ変換 → 医師が最終チェック」の二段構えで実用レベルへ。</div>
+    <div class="warn"><strong>試したAI議事録（取れる君）もWhisperも津軽弁で崩壊し、実用に届かなかった</strong>。市販の「議事録SaaS」や従来型STTは標準日本語モデル前提で、方言に構造的に弱い。</div>
+    <div class="good"><strong>検証の結論：同一のNHK録音での3エンジン比較でGeminiが圧勝</strong>（方言のまま文字起こし＋標準語訳、固有名詞も正確）。よって<strong>議事録はGemini直接音声入力を本命</strong>とし、ローカルPC1台をハブに匿名化・整形・保存を組み合わせる。</div>
     <div class="note">今回の方針＝<strong>「電子カルテ導入までのつなぎ」</strong>。大がかりな契約や全院展開は避け、<strong>院内PC1台＋Gemini/Claude API＋少数スタッフ</strong>で回す。うまく回ったら横に広げる。</div>
   </div>
 
@@ -215,10 +215,10 @@
 
         <!-- Module 1: STT -->
         <rect x="275" y="122" width="158" height="80" rx="6" fill="#fff" stroke="#0e9384" stroke-width="1.5"/>
-        <text x="354" y="140" text-anchor="middle" font-weight="800" fill="#0e9384">① Whisper（STT）</text>
-        <text x="354" y="158" text-anchor="middle" font-size="10">ローカルで音声→文字</text>
-        <text x="354" y="173" text-anchor="middle" font-size="10">large-v3 モデル</text>
-        <text x="354" y="188" text-anchor="middle" font-size="10" fill="#c9760a" font-weight="700">生音声は外に出さない</text>
+        <text x="354" y="140" text-anchor="middle" font-weight="800" fill="#0e9384">① 音声→文字</text>
+        <text x="354" y="158" text-anchor="middle" font-size="10">議事録＝Gemini直接音声(本命)</text>
+        <text x="354" y="173" text-anchor="middle" font-size="10">吹込み＝Whisper(ローカル)可</text>
+        <text x="354" y="188" text-anchor="middle" font-size="10" fill="#c9760a" font-weight="700">録音時に患者名を発話しない</text>
 
         <!-- Module 2: 匿名化 -->
         <rect x="447" y="122" width="158" height="80" rx="6" fill="#fff" stroke="#c9760a" stroke-width="1.5"/>
@@ -261,8 +261,8 @@
       <g font-size="11">
         <rect x="675" y="105" width="190" height="90" rx="6" fill="#fff" stroke="#7c3aed"/>
         <text x="770" y="123" text-anchor="middle" font-weight="800" fill="#7c3aed">Gemini API</text>
-        <text x="770" y="142" text-anchor="middle" font-size="10" fill="#5b6b7e">整形・要約・下書き</text>
-        <text x="770" y="158" text-anchor="middle" font-size="10" fill="#5b6b7e">音声理解も可（試行）</text>
+        <text x="770" y="142" text-anchor="middle" font-size="10" fill="#5b6b7e">津軽弁 音声→文字（検証済）</text>
+        <text x="770" y="158" text-anchor="middle" font-size="10" fill="#5b6b7e">整形・要約・下書き</text>
         <text x="770" y="176" text-anchor="middle" font-size="10" fill="#c9760a" font-weight="700">学習利用オフ設定</text>
 
         <rect x="675" y="205" width="190" height="90" rx="6" fill="#fff" stroke="#7c3aed"/>
@@ -295,31 +295,43 @@
 
   <!-- 4. 津軽弁対策 -->
   <div class="sec">
-    <div class="sec-head"><span class="no">DIALECT</span><h2>津軽弁への具体的な対応<small>2段構えで実用レベルへ</small></h2></div>
-    <div class="steps">
+    <div class="sec-head"><span class="no">DIALECT</span><h2>津軽弁への現実的な対応<small>「文字起こしを直す」のではなく「起こす対象を変える」</small></h2></div>
+
+    <div class="good">
+      <strong>検証済み（2026年5月・同一のNHK録音で3エンジン比較）：Geminiの圧勝。</strong>
+      「取れる君」は津軽弁部分で崩壊、Whisper large-v3は崩壊＋幻覚（誤った固有名詞を生成）。<strong>Geminiだけが津軽弁を「方言のまま」文字起こしし、標準語訳まで併記</strong>（例：「まんず、あど、仲良ぐしでけで」→「まず、あとは、仲良くしてくれて」）。固有名詞・数値の正確さも段違い。<strong>議事録の本命エンジンは Gemini 直接音声入力に確定</strong>。
+    </div>
+    <div class="warn">
+      <strong>背景：津軽弁の逐語文字起こしは従来型STTでは「未解決問題」</strong>（弘前大学＋東北電力が専用AIを共同研究しているレベル）。Whisperのような「音だけを聴く」型は崩壊するが、Geminiは「文脈で聴く」音声理解型のため方言に強い。<strong>Whisperを追い込む方向に時間を使わない</strong>。
+    </div>
+
+    <p style="font-size:13px;font-weight:700;margin:14px 0 8px;color:var(--purple)">運用の3つの型（本命A＋保険B/C）</p>
+
+    <div class="steps" style="grid-template-columns:repeat(3,1fr);">
       <div class="step">
-        <div class="dot">1</div>
-        <h4>音声を録る</h4>
-        <p>ICレコーダー or PC内蔵マイク。話者ごとにマイクを近づけると精度が跳ね上がる。</p>
+        <div class="dot">A</div>
+        <h4>Gemini直接音声（本命）</h4>
+        <p>カンファ録音を<strong>そのままGeminiへ</strong>。「方言のまま文字起こし＋標準語訳＋議事録体裁に整形」まで1プロンプトで指示。医師は[?]箇所と要点を5〜10分確認。<strong>検証済みで精度は実用圏</strong>。</p>
       </div>
       <div class="step">
-        <div class="dot">2</div>
-        <h4>Whisper でテキスト化</h4>
-        <p>ローカルで<strong>large-v3</strong>を実行。津軽弁は誤認あり、まず「そのまま」出力。</p>
+        <div class="dot">B</div>
+        <h4>ディクテーション（確実）</h4>
+        <p>紹介状・サマリの下書きは<strong>医師が標準語で吹き込む</strong>。話者1人・明瞭ならWhisper（ローカル）でも可＝<strong>音声を院外に出さない選択肢</strong>を残せる。</p>
       </div>
       <div class="step">
-        <div class="dot">3</div>
-        <h4>Gemini/Claudeで整形</h4>
-        <p>プロンプトで<strong>「津軽弁を標準日本語に変換／不明部分は[?]で示して」</strong>と指示。文脈から補正。</p>
-      </div>
-      <div class="step">
-        <div class="dot">4</div>
-        <h4>医師が最終確認</h4>
-        <p>[?]と要点だけ5〜10分で確認。医療用語・固有名詞の誤りを直して保存。</p>
+        <div class="dot">C</div>
+        <h4>メモ→整形（保険）</h4>
+        <p>騒がしい会議・録音不可の場面は<strong>走り書きメモをLLMで議事録体裁に整形</strong>。音声認識を迂回する保険として維持。</p>
       </div>
     </div>
-    <div class="note" style="margin-top:12px;">
-      補足：Gemini 2.5系は音声を直接受け取れる。<strong>Whisper（ローカル）→ Gemini（整形）</strong>の2段が最も現実的。慣れれば「Gemini直接に音声を投げてプロンプトで整形させる」1段運用も可能。<strong>いずれも患者名・IDは事前にマスクしてから外部へ</strong>。</div>
+
+    <div class="warn" style="margin-top:12px;">
+      <strong>A型の注意（重要）：音声を外部に送る＝「生音声は院外に出さない」原則の例外になる。</strong>運用条件を先に固める：
+      ①会議録音は<strong>患者氏名を発話しないルール</strong>（「303号室の方」等で呼ぶ）で録る／②送信は<strong>法人契約（Vertex AI等・学習利用オフ・保存最小）</strong>経由のみ／③検証はNHK録音＝クリア音源。<strong>実カンファは複数話者・雑音で条件が悪い</strong>ため、マイクを話者に近づける・決定事項は座長が復唱する等の録音品質対策を併用する。
+    </div>
+    <div class="good">
+      <strong>地の利：弘前大学が津軽弁AIの本家。</strong>当院は弘前。医療現場応用も研究目標に含まれており、中長期では<strong>共同研究・実証フィールド提供</strong>の打診も検討価値あり（患者会話の記録という将来課題に繋がる）。
+    </div>
   </div>
 
   <!-- 5. セキュリティ7原則 -->
@@ -366,8 +378,8 @@
   <div class="sec">
     <div class="sec-head"><span class="no">USE CASES</span><h2>この1台で何をするか</h2></div>
     <div class="uses">
-      <div class="use"><h3>1. カンファ議事録</h3>録音 → Whisper → Gemini/Claudeで整形（津軽弁→標準）→ 医師が最終確認 → 保存。清書ゼロ。</div>
-      <div class="use"><h3>2. 紹介状・退院サマリ 下書き</h3>要点を打ち込む → LLMがフォーマットで下書き → 医師が加筆修正。ゼロから書く時間が消える。</div>
+      <div class="use"><h3>1. カンファ議事録</h3>録音（患者名は発話しない）→ Gemini直接音声で「方言まま＋標準語訳＋議事録整形」→ 医師5〜10分確認。清書ゼロ。</div>
+      <div class="use"><h3>2. 紹介状・退院サマリ 下書き</h3>医師が標準語で吹き込む or 要点を打ち込む → LLMが下書き → 加筆修正。<strong>一番確実に動く用途</strong>。</div>
       <div class="use"><h3>3. 文献・ガイドライン要約</h3>PDFを投入 → 要点抽出。忙しい合間にキャッチアップ。</div>
       <div class="use"><h3>4. kintoneデータの分析補助</h3>CSVを投げてトレンド抽出。院内会議の資料作りが速くなる。</div>
       <div class="use"><h3>5. 学会資料・図表の下書き</h3>スライドの骨子作成、図表案の生成、英文校正。</div>
@@ -425,20 +437,20 @@
         </ul>
       </div>
       <div class="wk">
-        <h3>Week 3：STT・LLM構築</h3>
+        <h3>Week 3：ワークフロー構築</h3>
         <ul>
-          <li>Whisper.cpp／MLX-Whisper セットアップ</li>
+          <li>Gemini議事録パイプライン構築（検証済）</li>
+          <li>ディクテーション環境（Whisperローカル）</li>
           <li>匿名化スクリプト（Claude Codeで自作）</li>
-          <li>議事録用プロンプト整備</li>
-          <li>短時間音声で試験運用</li>
+          <li>議事録テンプレ・整形プロンプト整備</li>
         </ul>
       </div>
       <div class="wk">
         <h3>Week 4：試運転・振り返り</h3>
         <ul>
-          <li>実カンファで議事録運用</li>
-          <li>津軽弁の精度・調整</li>
-          <li>紹介状下書きも試す</li>
+          <li>実カンファで「復唱方式」を試す</li>
+          <li>紹介状ディクテーションを本運用</li>
+          <li>メモ→整形も並行で試す</li>
           <li>効果（時間削減）を記録開始</li>
         </ul>
       </div>
