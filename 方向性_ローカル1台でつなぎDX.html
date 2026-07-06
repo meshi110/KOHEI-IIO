@@ -216,8 +216,8 @@
         <!-- Module 1: STT -->
         <rect x="275" y="122" width="158" height="80" rx="6" fill="#fff" stroke="#0e9384" stroke-width="1.5"/>
         <text x="354" y="140" text-anchor="middle" font-weight="800" fill="#0e9384">① 音声→文字</text>
-        <text x="354" y="158" text-anchor="middle" font-size="10">議事録＝Gemini直接音声(本命)</text>
-        <text x="354" y="173" text-anchor="middle" font-size="10">吹込み＝Whisper(ローカル)可</text>
+        <text x="354" y="158" text-anchor="middle" font-size="10">議事録・吹込みともGemini本命</text>
+        <text x="354" y="173" text-anchor="middle" font-size="10">（Whisperは検証で誤り多く格下げ）</text>
         <text x="354" y="188" text-anchor="middle" font-size="10" fill="#c9760a" font-weight="700">録音時に患者名を発話しない</text>
 
         <!-- Module 2: 匿名化 -->
@@ -298,11 +298,13 @@
     <div class="sec-head"><span class="no">DIALECT</span><h2>津軽弁への現実的な対応<small>「文字起こしを直す」のではなく「起こす対象を変える」</small></h2></div>
 
     <div class="good">
-      <strong>検証済み（2026年5月・同一のNHK録音で3エンジン比較）：Geminiの圧勝。</strong>
-      「取れる君」は津軽弁部分で崩壊、Whisper large-v3は崩壊＋幻覚（誤った固有名詞を生成）。<strong>Geminiだけが津軽弁を「方言のまま」文字起こしし、標準語訳まで併記</strong>（例：「まんず、あど、仲良ぐしでけで」→「まず、あとは、仲良くしてくれて」）。固有名詞・数値の正確さも段違い。<strong>議事録の本命エンジンは Gemini 直接音声入力に確定</strong>。
+      <strong>検証済み（2026年5月・同一のNHK録音・マイク手持ち収録で3エンジン比較）：Geminiの圧勝。</strong><br>
+      ▸ <strong>アナウンサー部分（クリーンな標準語）</strong>：取れる君=ほぼ正確／<strong>Whisper=誤りあり</strong>（「馬に襲われて」「千木市」等）／Gemini=ほぼ完璧（固有名詞・数値まで正確）。<br>
+      ▸ <strong>津軽弁インタビュー</strong>：取れる君=崩壊／Whisper=崩壊＋幻覚／<strong>Geminiのみ方言のまま文字起こし＋標準語訳併記</strong>（「まんず、あど、仲良ぐしでけで」→「まず、あとは、仲良くしてくれて」）。<br>
+      → <strong>議事録の本命エンジンは Gemini 直接音声入力に確定</strong>。
     </div>
     <div class="warn">
-      <strong>背景：津軽弁の逐語文字起こしは従来型STTでは「未解決問題」</strong>（弘前大学＋東北電力が専用AIを共同研究しているレベル）。Whisperのような「音だけを聴く」型は崩壊するが、Geminiは「文脈で聴く」音声理解型のため方言に強い。<strong>Whisperを追い込む方向に時間を使わない</strong>。
+      <strong>検証から言えること（重要）：</strong>①マイク手持ち＝録音品質良好でもこの結果＝<strong>失敗の主因は録音環境ではなくエンジン</strong>。②取れる君はアナウンサーの標準語なら正確→院内会議で「標準語を意識」しても崩壊したのは、<strong>意識では消えない津軽訛りが残るため</strong>。③<strong>Whisperはクリーンな標準語ですら誤る</strong>→ローカルWhisperによるディクテーション案は期待薄。従来型STTを追い込む方向に時間を使わない。
     </div>
 
     <p style="font-size:13px;font-weight:700;margin:14px 0 8px;color:var(--purple)">運用の3つの型（本命A＋保険B/C）</p>
@@ -315,8 +317,8 @@
       </div>
       <div class="step">
         <div class="dot">B</div>
-        <h4>ディクテーション（確実）</h4>
-        <p>紹介状・サマリの下書きは<strong>医師が標準語で吹き込む</strong>。話者1人・明瞭ならWhisper（ローカル）でも可＝<strong>音声を院外に出さない選択肢</strong>を残せる。</p>
+        <h4>ディクテーション（Gemini＋仮名）</h4>
+        <p>紹介状・サマリの下書きは<strong>患者名を「患者A」等と吹き込んでGeminiへ</strong>。返った下書きの仮名を院内で実名に置換。※Whisperはアナウンサー音声でも誤ったため<strong>ローカル処理案は期待薄</strong>（試すなら5分テストのみ）。</p>
       </div>
       <div class="step">
         <div class="dot">C</div>
@@ -379,7 +381,7 @@
     <div class="sec-head"><span class="no">USE CASES</span><h2>この1台で何をするか</h2></div>
     <div class="uses">
       <div class="use"><h3>1. カンファ議事録</h3>録音（患者名は発話しない）→ Gemini直接音声で「方言まま＋標準語訳＋議事録整形」→ 医師5〜10分確認。清書ゼロ。</div>
-      <div class="use"><h3>2. 紹介状・退院サマリ 下書き</h3>医師が標準語で吹き込む or 要点を打ち込む → LLMが下書き → 加筆修正。<strong>一番確実に動く用途</strong>。</div>
+      <div class="use"><h3>2. 紹介状・退院サマリ 下書き</h3>患者名を「患者A」で吹き込み（Gemini）or 要点打ち込み → LLMが下書き → 実名置換・加筆修正。</div>
       <div class="use"><h3>3. 文献・ガイドライン要約</h3>PDFを投入 → 要点抽出。忙しい合間にキャッチアップ。</div>
       <div class="use"><h3>4. kintoneデータの分析補助</h3>CSVを投げてトレンド抽出。院内会議の資料作りが速くなる。</div>
       <div class="use"><h3>5. 学会資料・図表の下書き</h3>スライドの骨子作成、図表案の生成、英文校正。</div>
@@ -440,7 +442,7 @@
         <h3>Week 3：ワークフロー構築</h3>
         <ul>
           <li>Gemini議事録パイプライン構築（検証済）</li>
-          <li>ディクテーション環境（Whisperローカル）</li>
+          <li>仮名ディクテーション運用（Gemini）</li>
           <li>匿名化スクリプト（Claude Codeで自作）</li>
           <li>議事録テンプレ・整形プロンプト整備</li>
         </ul>
