@@ -132,7 +132,7 @@
   <div class="sec">
     <div class="sec-head"><span class="no">CONTEXT</span><h2>まず現状の整理</h2></div>
     <div class="warn"><strong>試したAI議事録（取れる君）もWhisperも津軽弁で崩壊し、実用に届かなかった</strong>。市販の「議事録SaaS」や従来型STTは標準日本語モデル前提で、方言に構造的に弱い。</div>
-    <div class="good"><strong>検証の結論：同一のNHK録音での3エンジン比較でGeminiが圧勝</strong>（方言のまま文字起こし＋標準語訳、固有名詞も正確）。よって<strong>議事録はGemini直接音声入力を本命</strong>とし、ローカルPC1台をハブに匿名化・整形・保存を組み合わせる。</div>
+    <div class="good"><strong>検証の結論：NHK録音での3エンジン比較に加え、実際の院内カンファ録音（7/6・複数話者・津軽弁・医療用語）でもGeminiが成功</strong>。臀部痛・MMT4・T字杖・独歩・体幹前屈まで正確、方言のまま文字起こし＋標準語訳、退院調整の内容も完全再現（取れる君は「鋼鉄工場の天仏とミニカシのしびれ」と崩壊）。<strong>議事録はGemini直接音声入力で確定・検証完了</strong>。</div>
     <div class="note">今回の方針＝<strong>「電子カルテ導入までのつなぎ」</strong>。大がかりな契約や全院展開は避け、<strong>院内PC1台＋Gemini/Claude API＋少数スタッフ</strong>で回す。うまく回ったら横に広げる。</div>
   </div>
 
@@ -301,7 +301,8 @@
       <strong>検証済み（2026年5月・同一のNHK録音・マイク手持ち収録で3エンジン比較）：Geminiの圧勝。</strong><br>
       ▸ <strong>アナウンサー部分（クリーンな標準語）</strong>：取れる君=ほぼ正確／<strong>Whisper=誤りあり</strong>（「馬に襲われて」「千木市」等）／Gemini=ほぼ完璧（固有名詞・数値まで正確）。<br>
       ▸ <strong>津軽弁インタビュー</strong>：取れる君=崩壊／Whisper=崩壊＋幻覚／<strong>Geminiのみ方言のまま文字起こし＋標準語訳併記</strong>（「まんず、あど、仲良ぐしでけで」→「まず、あとは、仲良くしてくれて」）。<br>
-      → <strong>議事録の本命エンジンは Gemini 直接音声入力に確定</strong>。
+      ▸ <strong>実カンファ録音（7/6・3分・複数話者）でも検証済み</strong>：医療用語（臀部痛/MMT4/T字杖/独歩/体幹前屈）すべて正確、「だばって」「はんで」「〜してら」を方言のまま起こし標準語訳・用語解説付き。退院調整（孫の車→ヘルスバス検討、娘宅→独居、お盆前退院目標）まで完全再現。<br>
+      → <strong>議事録の本命エンジンは Gemini 直接音声入力に確定。実環境での検証も完了</strong>。
     </div>
     <div class="warn">
       <strong>検証から言えること（重要）：</strong>①マイク手持ち＝録音品質良好でもこの結果＝<strong>失敗の主因は録音環境ではなくエンジン</strong>。②取れる君はアナウンサーの標準語なら正確→院内会議で「標準語を意識」しても崩壊したのは、<strong>意識では消えない津軽訛りが残るため</strong>。③<strong>Whisperはクリーンな標準語ですら誤る</strong>→ローカルWhisperによるディクテーション案は期待薄。従来型STTを追い込む方向に時間を使わない。
@@ -328,8 +329,11 @@
     </div>
 
     <div class="warn" style="margin-top:12px;">
-      <strong>A型の注意（重要）：音声を外部に送る＝「生音声は院外に出さない」原則の例外になる。</strong>運用条件を先に固める：
-      ①会議録音は<strong>患者氏名を発話しないルール</strong>（「303号室の方」等で呼ぶ）で録る／②送信は<strong>法人契約（Vertex AI等・学習利用オフ・保存最小）</strong>経由のみ／③検証はNHK録音＝クリア音源。<strong>実カンファは複数話者・雑音で条件が悪い</strong>ため、マイクを話者に近づける・決定事項は座長が復唱する等の録音品質対策を併用する。
+      <strong>A型の注意（重要）：音声を外部に送る経路を厳密に使い分ける。</strong><br>
+      ▸ <strong>AI Studio（無料）＝実運用禁止</strong>。アップロードデータが製品改善に使われ得る（検証はここで実施済み→今後は使わない）。<br>
+      ▸ <strong>当面の運用＝Geminiアプリ（Pro契約）＋「Geminiアプリ アクティビティ」オフ</strong>。学習利用なし（一時保存最大72時間のみ）。追加費用ゼロで今日から可。<br>
+      ▸ <strong>自動化・本運用＝Gemini API（有料・従量）または Workspace/Vertex AI</strong>。規約上、入力データは学習に使用されない。15分の会議1回あたり数円程度。<br>
+      ▸ いずれの経路でも<strong>会議録音は患者氏名を発話しないルール</strong>（「1人目の方」「303号室の方」等）で録る。これで72時間保存の論点自体が消える。院内の個人情報管理者にも一言通しておく。
     </div>
     <div class="good">
       <strong>地の利：弘前大学が津軽弁AIの本家。</strong>当院は弘前。医療現場応用も研究目標に含まれており、中長期では<strong>共同研究・実証フィールド提供</strong>の打診も検討価値あり（患者会話の記録という将来課題に繋がる）。
@@ -363,7 +367,7 @@
         <tr><td>暗号化外付けSSD</td><td>1TB以上、AES256対応（バックアップ用）</td><td class="amt">1.5万円</td></tr>
         <tr><td>盗難防止ワイヤー・施錠</td><td>Kensington等の物理ロック、施錠キャビネット</td><td class="amt">1万円</td></tr>
         <tr><td>OSソフト</td><td>macOS標準（FileVault内蔵） or Windows Pro</td><td class="amt">同梱</td></tr>
-        <tr><td>Whisper.cpp / MLX-Whisper</td><td>オープンソース。ローカルSTT</td><td class="amt">無料</td></tr>
+        <tr><td>Whisper.cpp / MLX-Whisper</td><td>検証で標準語すら誤りあり→<strong>採用見送り</strong>（参考記載）</td><td class="amt">―</td></tr>
         <tr><td>Claude Code</td><td>開発・自動化のハブ</td><td class="amt">プラン内</td></tr>
         <tr><td>Gemini API（法人）</td><td>Google Cloud または Google AI Enterprise 契約で学習利用オフ</td><td class="amt">従量／月0.5〜3万円</td></tr>
         <tr><td>Claude API（法人）</td><td>Anthropic Console。データは学習に使われない</td><td class="amt">従量／月0.5〜3万円</td></tr>
@@ -395,8 +399,8 @@
     <div class="tl">
       <div class="it">
         <div class="t">今〜3ヶ月</div>
-        <div class="h">Phase 1：1台PCの立ち上げ・議事録の実用化</div>
-        <div class="d">PC調達・セキュリティ設定・Whisper／API設定・議事録運用開始。使う人は飯尾医師＋若手医師。</div>
+        <div class="h">Phase 1：議事録の本運用化・専用環境整備</div>
+        <div class="d">検証は完了済み。Geminiアプリ（アクティビティオフ）で手動運用を開始しつつ、専用PC・APIキー（有料＝学習利用なし）を整備し「フォルダに録音→議事録Wordが出る」自動化へ。使う人は飯尾医師＋若手医師。</div>
       </div>
       <div class="it">
         <div class="t">3〜9ヶ月</div>
