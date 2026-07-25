@@ -9,14 +9,16 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
+# 出力先は「Obsidianが実際に読みに行くvault」を指す必要がある。
+# そうでないとノートがObsidianに取り込まれず、検索もリンクも効かない。
 # iCloud Drive の「デスクトップ」同期が有効な Mac では ~/Desktop が iCloud 上の
-# デスクトップそのものを指す。同期が無効な場合は .env で下のフルパスを指定する:
-#   ~/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Claude/文献監視エージェント
-DEFAULT_VAULT_DIR = "~/Desktop/Claude/文献監視エージェント"
+# デスクトップそのものを指す。同期が無効な場合は .env でフルパスを指定する:
+#   ~/Library/Mobile Documents/com~apple~CloudDocs/Desktop/KOHEI-Vault
+DEFAULT_VAULT_DIR = "~/Desktop/KOHEI-Vault"
 
-# vault 内のサブフォルダ。
-SUBDIR_MAIN = "人工関節"
-SUBDIR_CASE_REPORTS = "人工関節/症例報告"
+# vault 内のサブフォルダ(仕様書の <vault>/文献監視/人工関節/ に対応)。
+DEFAULT_SUBDIR = "文献監視/人工関節"
+CASE_REPORTS_FOLDER = "症例報告"
 
 # NCBI の規約レート。APIキーありで10req/秒、なしで3req/秒。
 # 「厳守」のため、上限そのものではなく少し下を実効レートとして使う。
@@ -62,6 +64,8 @@ class Config:
         vault = values.get("VAULT_DIR", DEFAULT_VAULT_DIR).strip() or DEFAULT_VAULT_DIR
         self.vault_dir = Path(os.path.expanduser(vault))
 
+        self.subdir = values.get("SUBDIR", DEFAULT_SUBDIR).strip() or DEFAULT_SUBDIR
+
         state_dir = values.get("STATE_DIR", "").strip()
         self.state_dir = (
             Path(os.path.expanduser(state_dir)) if state_dir else PROJECT_ROOT / "state"
@@ -85,11 +89,11 @@ class Config:
 
     @property
     def main_output_dir(self):
-        return self.vault_dir / SUBDIR_MAIN
+        return self.vault_dir / self.subdir
 
     @property
     def case_output_dir(self):
-        return self.vault_dir / SUBDIR_CASE_REPORTS
+        return self.vault_dir / self.subdir / CASE_REPORTS_FOLDER
 
     def require_email(self):
         """NCBI規約上 email は必須。未設定なら実行を止める。"""

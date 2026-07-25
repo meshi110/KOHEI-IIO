@@ -234,6 +234,7 @@ def cmd_run(args, config):
                         if any(p in set(new_case) for p in f["pmids"])
                     ],
                     title_suffix=" (症例報告)",
+                    tags=["文献監視", "人工関節", "症例報告"],
                 ),
             )
             print(f"出力: {case_path}")
@@ -336,6 +337,7 @@ def cmd_backfill(args, config):
             query_map={ch: CHANNELS[ch] for ch in channels},
             failures=failures,
             title_suffix=" (遡り取得)",
+            tags=["文献監視", "人工関節", "症例報告"],
         ),
     )
 

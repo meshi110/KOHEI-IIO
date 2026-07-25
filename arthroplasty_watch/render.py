@@ -105,8 +105,11 @@ def render_note(
     query_map,
     failures=None,
     title_suffix="",
+    tags=None,
 ):
     failures = failures or []
+    # Obsidianのタグペイン・検索から辿れるようにする。
+    tags = tags or ["文献監視", "人工関節"]
     title = f"人工関節 文献監視 {date_str}"
     if title_suffix:
         title = f"{title}{title_suffix}"
@@ -114,6 +117,10 @@ def render_note(
     lines = [
         "---",
         f"date: {date_str}",
+        "tags:",
+    ]
+    lines.extend(f"  - {tag}" for tag in tags)
+    lines.extend([
         "source: PubMed (NCBI E-utilities)",
         "generator: arthroplasty-watch v1",
         "note: abstractはPubMed原文のまま。要約・評価・翻訳は行っていない。",
@@ -130,7 +137,7 @@ def render_note(
         "",
         "## 件数(PubMed実測)",
         "",
-    ]
+    ])
     lines.extend(_render_summary_block(channel_counts))
     lines.extend(
         [

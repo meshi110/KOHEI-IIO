@@ -34,20 +34,25 @@ open -e .env
 `.env` を開いて最低限これだけ設定する:
 
 ```
-NCBI_EMAIL=あなたのメールアドレス     # NCBI規約により必須
-NCBI_API_KEY=                        # 任意。あれば10req/秒、無ければ3req/秒
-VAULT_DIR=~/Desktop/Claude/文献監視エージェント
+NCBI_EMAIL=あなたのメールアドレス
+NCBI_API_KEY=
+VAULT_DIR=~/Desktop/KOHEI-Vault
 ```
 
-APIキーの取得(任意・推奨): <https://account.ncbi.nlm.nih.gov/> → Account settings → API Key Management
+`NCBI_EMAIL` はNCBIの規約により必須。`NCBI_API_KEY` は任意で、設定すると10req/秒、
+未設定なら3req/秒になる。
+APIキーの取得: <https://account.ncbi.nlm.nih.gov/> → Account settings → API Key Management
 
 ### vaultパスの確認
 
+**`VAULT_DIR` には必ず「Obsidianが実際に読みに行くvault」を指定する。**
+別の場所に出力するとノートがObsidianに取り込まれず、検索もリンクも効かない。
+
 iCloud Driveの「デスクトップとドキュメント」同期が有効なMacでは `~/Desktop` がiCloud上の
-デスクトップを指すため、既定値のままでよい。パスが違う場合は `.env` の `VAULT_DIR` を実体パスに変える:
+デスクトップを指すため、既定値のままでよい。パスが違う場合は実体パスに変える:
 
 ```
-VAULT_DIR=~/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Claude/文献監視エージェント
+VAULT_DIR=~/Library/Mobile Documents/com~apple~CloudDocs/Desktop/KOHEI-Vault
 ```
 
 設定が正しいかは次で確認できる(ネットに出ない):
@@ -117,12 +122,20 @@ crontab -e
 ## 4. 出力
 
 ```
-<VAULT_DIR>/
-  人工関節/
-    2026-07-25.md              週次の新着(チャンネルA∪B)
-    症例報告/
-      2026-07-25.md            症例報告(チャンネルC)
+KOHEI-Vault/
+  文献監視/
+    人工関節/
+      2026-07-25.md              週次の新着(チャンネルA∪B)
+      症例報告/
+        2026-07-25.md            症例報告(チャンネルC)
 ```
+
+出力先フォルダは `.env` の `SUBDIR` で変えられる(既定 `文献監視/人工関節`)。
+
+各ノートのフロントマターにタグが入るため、Obsidianのタグペインや検索から辿れる。
+
+- 本体ノート: `文献監視` `人工関節`
+- 症例報告ノート: `文献監視` `人工関節` `症例報告`
 
 同じ日に2回実行しても、1回目のノートは上書きしない
 (新着があれば `2026-07-25_2.md` に書き、新着が無ければ既存を触らない)。
