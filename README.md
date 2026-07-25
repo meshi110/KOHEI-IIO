@@ -93,29 +93,106 @@ python3 -m unittest discover -s tests -t .
 
 ## 3. cron登録(STEP 3)
 
-**まだ登録していない。** 上の動作確認が済んでから登録すること。
+手動実行の動作確認が済んでから登録すること。
+
+### 3-1. スクリプトに実行権限を付ける
 
 ```bash
+cd ~/KOHEI-IIO
 chmod +x run_weekly.sh
-crontab -e
 ```
 
-毎週月曜 8:00 に実行する例(パスは実際の設置場所に置き換える):
+### 3-2. フルディスクアクセスを許可する(重要)
 
-```cron
-0 8 * * 1 /Users/<ユーザ名>/<設置場所>/run_weekly.sh
+**vaultが `~/Desktop` / `~/Documents` / `~/Downloads` 配下にある場合、この設定をしないと
+cronからの書き込みがmacOSのプライバシー保護でブロックされ、"Operation not permitted" で失敗する。**
+
+1. システム設定 → プライバシーとセキュリティ → フルディスクアクセス
+2. 「＋」をクリック
+3. ファイル選択画面で `Command + Shift + G` を押し、`/usr/sbin/cron` と入力して開く
+4. 追加された `cron` のスイッチをオンにする
+
+`/usr/sbin` は通常のFinderでは見えないため、手順3のパス入力が必要。
+
+### 3-3. スクリプト単体で動作確認する
+
+```bash
+./run_weekly.sh
+cat logs/$(date +%Y-%m-%d).log
 ```
 
-注意点:
+ログに「終了:」の行が出ていれば成功。
 
-- cron はログイン時の環境変数を引き継がない。`run_weekly.sh` は絶対パスで動くようにしてある。
-- `python3` の場所が `/usr/bin/python3` でない場合は `which python3` で確認し、
-  `run_weekly.sh` の `PYTHON=` を書き換える。
-- macOS では cron に「フルディスクアクセス」が必要な場合がある
-  (システム設定 → プライバシーとセキュリティ → フルディスクアクセス → `/usr/sbin/cron` を追加)。
-- 実行ログは `logs/YYYY-MM-DD.log` に残る。
-- Macがスリープしていると cron は動かない。確実に動かしたい場合は launchd の
-  `StartCalendarInterval` を使う(スリープ復帰後に実行される)。
+### 3-4. cronに登録する
+
+エディタを開かずに追記する(毎週日曜 20:00 の場合):
+
+```bash
+(crontab -l 2>/dev/null; echo "0 20 * * 0 $HOME/KOHEI-IIO/run_weekly.sh") | crontab -
+```
+
+cronの書式は `分 時 日 月 曜日` で、曜日は 0=日曜, 1=月曜 ... 6=土曜。
+
+| 実行タイミング | 記述 |
+|---|---|
+| 毎週日曜 20:00 | `0 20 * * 0` |
+| 毎週月曜 8:00 | `0 8 * * 1` |
+| 毎日 20:00 | `0 20 * * *` |
+
+登録内容の確認:
+
+```bash
+crontab -l
+```
+
+### 3-5. 実際に発火するか確認する(推奨)
+
+フルディスクアクセスが効いているかは、実際にcronから動かさないと確認できない。
+数分後の時刻を一時的に登録して試す。
+
+現在時刻を確認し、2〜3分後の「分」と「時」を入れて登録する:
+
+```bash
+date
+```
+
+例えば14:23なら、14:25に発火させる一時設定:
+
+```bash
+(crontab -l 2>/dev/null; echo "25 14 * * * $HOME/KOHEI-IIO/run_weekly.sh") | crontab -
+```
+
+その時刻を過ぎたらログを確認する:
+
+```bash
+cat ~/KOHEI-IIO/logs/$(date +%Y-%m-%d).log
+```
+
+「終了:」まで出ていれば成功。確認できたら一時設定を消して本設定だけにする:
+
+```bash
+crontab -l | grep -v "^25 14" | crontab -
+```
+
+### 登録内容を変更・削除したいとき
+
+`crontab -e` は既定でviが開いて操作が難しいため、nanoを指定する:
+
+```bash
+EDITOR=nano crontab -e
+```
+
+nanoは `Control + O` → `Enter` で保存、`Control + X` で終了。
+
+すべて削除する場合は `crontab -r`(確認なしで全消去されるので注意)。
+
+### その他の注意点
+
+- cronはログイン時の環境変数を引き継がない。`run_weekly.sh` は絶対パスで動き、
+  python3も自動検出するようにしてある。
+- 実行ログは `logs/YYYY-MM-DD.log` に残る。失敗時も残るので原因追跡に使える。
+- **Macがスリープしているとcronは実行されない。** 常時起動でない場合はlaunchdの
+  `StartCalendarInterval` を使う(スリープ復帰後に取りこぼし分が実行される)。
 
 ---
 
