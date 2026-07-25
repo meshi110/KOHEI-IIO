@@ -7,11 +7,28 @@ PubMedから膝・肩の人工関節に関する新着論文を週次で取得�
 
 ---
 
+## 0. リポジトリを取得する(Mac側で1回だけ)
+
+**vaultフォルダの中ではなく、別の場所にcloneする。**
+vault内に置くとObsidianがコードを取り込み、`.env`(メールアドレス・APIキー)がiCloudに同期されてしまうため。
+
+ホーム直下に置く場合:
+
+```bash
+cd ~
+git clone https://github.com/meshi110/KOHEI-IIO.git
+cd KOHEI-IIO
+git checkout claude/joint-arthroplasty-literature-agent-9h5xm4
+```
+
+以降の作業はすべてこの `~/KOHEI-IIO` の中で行う。
+別のターミナルを開き直したときは `cd ~/KOHEI-IIO` してから実行すること。
+
 ## 1. セットアップ(Mac側で1回だけ)
 
 ```bash
-cd <このリポジトリを置いた場所>
 cp .env.example .env
+open -e .env
 ```
 
 `.env` を開いて最低限これだけ設定する:
@@ -136,11 +153,15 @@ python3 -m arthroplasty_watch search-cases "periprosthetic fracture" --limit 50
 保管庫は週次実行で少しずつ貯まる。**過去分を最初にまとめて入れたい場合**は遡り取得を使う
 (過去1年の症例報告は実測281件。5年分でも1400件程度):
 
-```bash
-# まず件数を確認
-python3 -m arthroplasty_watch backfill --from 2021/01/01 --to 2026/07/25 --dry-run
+まず件数を確認する:
 
-# 実行(件数によっては数分かかる)
+```bash
+python3 -m arthroplasty_watch backfill --from 2021/01/01 --to 2026/07/25 --dry-run
+```
+
+問題なければ実行する(件数によっては数分かかる):
+
+```bash
 python3 -m arthroplasty_watch backfill --from 2021/01/01 --to 2026/07/25
 ```
 
@@ -193,11 +214,17 @@ python3 -m arthroplasty_watch backfill --from 2021/01/01 --to 2026/07/25
 
 ## 8. コマンド一覧
 
-```bash
-python3 -m arthroplasty_watch run                    # 週次取得
-python3 -m arthroplasty_watch run --dry-run          # 件数だけ確認
-python3 -m arthroplasty_watch run --reldate 30       # 直近30日で取得
-python3 -m arthroplasty_watch backfill --from ... --to ...   # 遡り取得
-python3 -m arthroplasty_watch search-cases "検索語"  # 症例報告の検索
-python3 -m arthroplasty_watch stats                  # 現在の状態
-```
+| コマンド | 用途 |
+|---|---|
+| `python3 -m arthroplasty_watch run` | 週次取得 |
+| `python3 -m arthroplasty_watch run --dry-run` | 件数だけ確認 |
+| `python3 -m arthroplasty_watch run --reldate 30` | 直近30日で取得 |
+| `python3 -m arthroplasty_watch backfill --from 2021/01/01 --to 2026/07/25` | 遡り取得 |
+| `python3 -m arthroplasty_watch search-cases "検索語"` | 症例報告の検索 |
+| `python3 -m arthroplasty_watch stats` | 現在の状態 |
+
+### 注意: コマンドをコピーするとき
+
+macOSの既定シェル(zsh)は対話モードで行末の `#` をコメントとして扱わない。
+`コマンド  # 説明` の形をそのまま貼ると、説明文がコマンドの引数として渡されて失敗する。
+このREADMEのコマンドは注記を付けていないので、そのまま貼って問題ない。
