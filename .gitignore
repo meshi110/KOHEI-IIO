@@ -1,0 +1,14 @@
+# 秘密情報
+.env
+
+# 実行時の状態(取得済みPMID・症例報告保管庫)
+state/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# macOS
+.DS_Store

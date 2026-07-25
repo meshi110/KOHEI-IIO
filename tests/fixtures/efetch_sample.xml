@@ -1,0 +1,131 @@
+<?xml version="1.0" ?>
+<PubmedArticleSet>
+  <PubmedArticle>
+    <MedlineCitation Status="Publisher" Owner="NLM">
+      <PMID Version="1">40000001</PMID>
+      <Article PubModel="Print-Electronic">
+        <Journal>
+          <ISSN IssnType="Electronic">1532-8406</ISSN>
+          <JournalIssue CitedMedium="Internet">
+            <Volume>41</Volume>
+            <PubDate>
+              <Year>2026</Year>
+              <Month>Mar</Month>
+            </PubDate>
+          </JournalIssue>
+          <Title>The Journal of arthroplasty</Title>
+          <ISOAbbreviation>J Arthroplasty</ISOAbbreviation>
+        </Journal>
+        <ArticleTitle>Cemented versus cementless fixation in total knee arthroplasty: a randomized controlled trial.</ArticleTitle>
+        <ELocationID EIdType="doi" ValidYN="Y">10.1016/j.arth.2026.01.001</ELocationID>
+        <Abstract>
+          <AbstractText Label="BACKGROUND" NlmCategory="BACKGROUND">Fixation choice in total knee arthroplasty remains debated.</AbstractText>
+          <AbstractText Label="METHODS" NlmCategory="METHODS">We randomized 200 patients (100 per group) and followed them for 24 months.</AbstractText>
+          <AbstractText Label="RESULTS" NlmCategory="RESULTS">Mean Knee Society Score was 89.4 &#177; 6.2 versus 88.1 &#177; 7.0 (p = 0.18).</AbstractText>
+          <CopyrightInformation>Copyright &#169; 2026 Elsevier Inc. All rights reserved.</CopyrightInformation>
+        </Abstract>
+        <AuthorList CompleteYN="Y">
+          <Author ValidYN="Y">
+            <LastName>Tanaka</LastName>
+            <ForeName>Hiroshi</ForeName>
+            <Initials>H</Initials>
+          </Author>
+          <Author ValidYN="Y">
+            <LastName>Smith</LastName>
+            <ForeName>Jane A</ForeName>
+            <Initials>JA</Initials>
+          </Author>
+        </AuthorList>
+        <Language>eng</Language>
+        <PublicationTypeList>
+          <PublicationType UI="D016449">Randomized Controlled Trial</PublicationType>
+          <PublicationType UI="D016428">Journal Article</PublicationType>
+        </PublicationTypeList>
+      </Article>
+      <KeywordList Owner="NOTNLM">
+        <Keyword MajorTopicYN="N">cementless</Keyword>
+        <Keyword MajorTopicYN="N">total knee arthroplasty</Keyword>
+      </KeywordList>
+    </MedlineCitation>
+    <PubmedData>
+      <ArticleIdList>
+        <ArticleId IdType="pubmed">40000001</ArticleId>
+        <ArticleId IdType="doi">10.1016/j.arth.2026.01.001</ArticleId>
+      </ArticleIdList>
+    </PubmedData>
+  </PubmedArticle>
+
+  <PubmedArticle>
+    <MedlineCitation Status="Publisher" Owner="NLM">
+      <PMID Version="1">40000002</PMID>
+      <Article PubModel="Print">
+        <Journal>
+          <JournalIssue CitedMedium="Print">
+            <PubDate>
+              <MedlineDate>2025 Nov-Dec</MedlineDate>
+            </PubDate>
+          </JournalIssue>
+          <Title>Zeitschrift fur Orthopadie und Unfallchirurgie</Title>
+          <ISOAbbreviation>Z Orthop Unfall</ISOAbbreviation>
+        </Journal>
+        <ArticleTitle>Registerdaten zur Schulterendoprothetik.</ArticleTitle>
+        <AuthorList CompleteYN="Y">
+          <Author ValidYN="Y">
+            <CollectiveName>German Arthroplasty Registry Study Group</CollectiveName>
+          </Author>
+        </AuthorList>
+        <Language>ger</Language>
+        <PublicationTypeList>
+          <PublicationType UI="D016428">Journal Article</PublicationType>
+        </PublicationTypeList>
+      </Article>
+      <OtherAbstract Type="Publisher" Language="ger">
+        <AbstractText>Die Registerdaten zeigen eine Revisionsrate von 4,2% nach f&#252;nf Jahren.</AbstractText>
+      </OtherAbstract>
+    </MedlineCitation>
+    <PubmedData>
+      <ArticleIdList>
+        <ArticleId IdType="pubmed">40000002</ArticleId>
+      </ArticleIdList>
+    </PubmedData>
+  </PubmedArticle>
+
+  <PubmedArticle>
+    <MedlineCitation Status="Publisher" Owner="NLM">
+      <PMID Version="1">40000003</PMID>
+      <Article PubModel="Electronic">
+        <Journal>
+          <JournalIssue CitedMedium="Internet">
+            <PubDate>
+              <Year>2026</Year>
+            </PubDate>
+          </JournalIssue>
+          <Title>Journal of shoulder and elbow surgery</Title>
+          <ISOAbbreviation>J Shoulder Elbow Surg</ISOAbbreviation>
+        </Journal>
+        <ArticleTitle>Periprosthetic infection after reverse shoulder arthroplasty: a case report.</ArticleTitle>
+        <Abstract>
+          <AbstractText>A 72-year-old patient presented with periprosthetic joint infection 14 months after reverse shoulder arthroplasty.</AbstractText>
+        </Abstract>
+        <AuthorList CompleteYN="Y">
+          <Author ValidYN="Y">
+            <LastName>Yamada</LastName>
+            <ForeName>Taro</ForeName>
+            <Initials>T</Initials>
+          </Author>
+        </AuthorList>
+        <Language>eng</Language>
+        <PublicationTypeList>
+          <PublicationType UI="D002363">Case Reports</PublicationType>
+          <PublicationType UI="D016428">Journal Article</PublicationType>
+        </PublicationTypeList>
+      </Article>
+    </MedlineCitation>
+    <PubmedData>
+      <ArticleIdList>
+        <ArticleId IdType="pubmed">40000003</ArticleId>
+        <ArticleId IdType="doi">10.1016/j.jse.2026.02.002</ArticleId>
+      </ArticleIdList>
+    </PubmedData>
+  </PubmedArticle>
+</PubmedArticleSet>
