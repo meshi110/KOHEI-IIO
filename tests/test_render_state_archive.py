@@ -9,7 +9,7 @@ from arthroplasty_watch.parse import (
     failed_article,
     parse_efetch_xml,
 )
-from arthroplasty_watch.queries import CHANNELS
+from arthroplasty_watch.topics import get_topic
 from arthroplasty_watch.render import render_article, render_note
 from arthroplasty_watch.state import SeenStore
 
@@ -56,7 +56,8 @@ class RenderTest(unittest.TestCase):
             new_total=1,
             seen_total=345,
             reldate=10,
-            query_map={"A": CHANNELS["A"], "B": CHANNELS["B"]},
+            query_map={"A": get_topic("knee").channel("A").query,
+                       "B": get_topic("knee").channel("B").query},
         )
         self.assertIn("PubMedヒット 12件", note)
         self.assertIn("うち新規 1件", note)
@@ -73,7 +74,7 @@ class RenderTest(unittest.TestCase):
             new_total=0,
             seen_total=10,
             reldate=10,
-            query_map={"A": CHANNELS["A"]},
+            query_map={"A": get_topic("knee").channel("A").query},
         )
         self.assertIn("(今回の新着はありません)", note)
 
@@ -85,7 +86,7 @@ class RenderTest(unittest.TestCase):
             new_total=0,
             seen_total=0,
             reldate=10,
-            query_map={"A": CHANNELS["A"]},
+            query_map={"A": get_topic("knee").channel("A").query},
             failures=[{"pmids": ["40000009"], "reason": "HTTP 500"}],
         )
         self.assertIn("## 取得失敗", note)

@@ -16,8 +16,9 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 #   ~/Library/Mobile Documents/com~apple~CloudDocs/Desktop/KOHEI-Vault
 DEFAULT_VAULT_DIR = "~/Desktop/KOHEI-Vault"
 
-# vault 内のサブフォルダ(仕様書の <vault>/文献監視/人工関節/ に対応)。
-DEFAULT_SUBDIR = "文献監視/人工関節"
+# vault 内のサブフォルダ。この下にトピックごとのフォルダを作る。
+#   <vault>/文献監視/<トピックのフォルダ名>/YYYY-MM-DD.md
+DEFAULT_SUBDIR = "文献監視"
 CASE_REPORTS_FOLDER = "症例報告"
 
 # NCBI の規約レート。APIキーありで10req/秒、なしで3req/秒。
@@ -79,21 +80,27 @@ class Config:
     def rate_per_second(self):
         return RATE_WITH_KEY if self.api_key else RATE_WITHOUT_KEY
 
+    # -- トピック別のパス ---------------------------------------------------
+    def state_path(self, topic_id):
+        return self.state_dir / f"seen_pmids_{topic_id}.json"
+
+    def case_archive_path(self, topic_id):
+        return self.state_dir / f"case_reports_{topic_id}.jsonl"
+
+    def main_output_dir(self, topic):
+        return self.vault_dir / self.subdir / topic.folder
+
+    def case_output_dir(self, topic):
+        return self.vault_dir / self.subdir / topic.folder / CASE_REPORTS_FOLDER
+
+    # -- 移行前の旧パス(1トピック時代) --------------------------------------
     @property
-    def state_path(self):
+    def legacy_state_path(self):
         return self.state_dir / "seen_pmids.json"
 
     @property
-    def case_archive_path(self):
+    def legacy_case_archive_path(self):
         return self.state_dir / "case_reports.jsonl"
-
-    @property
-    def main_output_dir(self):
-        return self.vault_dir / self.subdir
-
-    @property
-    def case_output_dir(self):
-        return self.vault_dir / self.subdir / CASE_REPORTS_FOLDER
 
     def require_email(self):
         """NCBI規約上 email は必須。未設定なら実行を止める。"""
@@ -112,10 +119,8 @@ class Config:
                 f"  APIキー        : {key_state}",
                 f"  実効レート     : {self.rate_per_second} req/秒",
                 f"  vault          : {self.vault_dir}",
-                f"  本体ノート出力 : {self.main_output_dir}",
-                f"  症例報告出力   : {self.case_output_dir}",
-                f"  状態ファイル   : {self.state_path}",
-                f"  症例報告保管庫 : {self.case_archive_path}",
+                f"  出力先         : {self.vault_dir / self.subdir}/<トピック>/",
+                f"  状態ディレクトリ: {self.state_dir}",
             ]
         )
 

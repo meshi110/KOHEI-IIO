@@ -1,7 +1,17 @@
-# 人工関節(膝・肩)文献監視エージェント v1
+# 整形外科 文献監視エージェント
 
-PubMedから膝・肩の人工関節に関する新着論文を週次で取得し、Obsidian vaultにMarkdownで出力する。
-**臨床判断は行わない。情報収集のみ。** LLMによる要約・評価はv1に含まない。
+PubMedから新着論文を週次で取得し、Obsidian vaultにMarkdownで出力する。
+**臨床判断は行わない。情報収集のみ。** LLMによる要約・評価は含まない。
+
+監視トピック(5つ)。1回のcron実行で全トピックを順に処理する。
+
+| トピック | 内容 | 実測(週) |
+|---|---|--:|
+| `knee` 人工関節(膝) | TKA/UKA。RCT・メタ解析＋コア5誌 | 約18件 |
+| `shoulder` 人工関節(肩) | リバース型(RSA)を含む。＋レジストリ・survivorship | 約9件 |
+| `cuff` 腱板 | 修復術・断裂。＋retear/healing rate | 約12件 |
+| `prp` PRP | 多血小板血漿。運動器に限定(ACP含む) | 約10件 |
+| `infection` 術後感染症 | 人工関節感染・骨髄炎。ガイドライン重視 | 約8件 |
 
 外部パッケージ不要(Python標準ライブラリのみ)。`pip install` は不要。
 
@@ -201,18 +211,21 @@ nanoは `Control + O` → `Enter` で保存、`Control + X` で終了。
 ```
 KOHEI-Vault/
   文献監視/
-    人工関節/
-      2026-07-25.md              週次の新着(チャンネルA∪B)
-      症例報告/
-        2026-07-25.md            症例報告(チャンネルC)
+    人工関節-膝/
+      2026-07-25.md              週次の新着
+      症例報告/2026-07-25.md      症例報告
+    人工関節-肩/
+    腱板/
+    PRP/
+    術後感染症/
 ```
 
-出力先フォルダは `.env` の `SUBDIR` で変えられる(既定 `文献監視/人工関節`)。
+出力先の親フォルダは `.env` の `SUBDIR` で変えられる(既定 `文献監視`)。
 
-各ノートのフロントマターにタグが入るため、Obsidianのタグペインや検索から辿れる。
+各ノートのフロントマターにトピック別のタグが入るため、Obsidianのタグペインや検索から辿れる
+(例: `文献監視` `人工関節` `膝`、症例報告ノートにはさらに `症例報告`)。
 
-- 本体ノート: `文献監視` `人工関節`
-- 症例報告ノート: `文献監視` `人工関節` `症例報告`
+なお `文献監視/人工関節/` は膝と肩を分離する前の初回実行分。そのまま履歴として残る。
 
 同じ日に2回実行しても、1回目のノートは上書きしない
 (新着があれば `2026-07-25_2.md` に書き、新着が無ければ既存を触らない)。
@@ -220,9 +233,13 @@ KOHEI-Vault/
 状態ファイルはiCloud上には置かない(同期競合を避けるため)。既定はリポジトリ内:
 
 ```
-state/seen_pmids.json      取得済みPMID(差分抽出用)
-state/case_reports.jsonl   症例報告の保管庫(検索用)
+state/seen_pmids_<トピック>.json      取得済みPMID(差分抽出用)
+state/case_reports_<トピック>.jsonl   症例報告の保管庫(検索用)
 ```
+
+旧1トピック構成の `seen_pmids.json` / `case_reports.jsonl` は初回実行時に自動で移行される
+(膝と肩の両方に引き継がれ、取得済み分が再出力されない)。旧ファイルは削除せず
+`.migrated` を付けて退避する。
 
 `state/` と `.env` は `.gitignore` 済み。
 
@@ -231,7 +248,9 @@ state/case_reports.jsonl   症例報告の保管庫(検索用)
 ## 5. 症例報告について
 
 症例報告はチャンネルA/Bから除外しつつ、**捨てずにチャンネルCとして別建てで保管**する。
-後から「◯◯の症例報告はあるか?」を検索できる。
+後から「◯◯の症例報告はあるか?」を検索できる。検索は全トピック横断で行われる。
+
+特に術後感染症では、稀な起因菌の情報が症例報告にしか無いことが多い(年410件蓄積)。
 
 ```bash
 python3 -m arthroplasty_watch search-cases "infection"
@@ -257,29 +276,42 @@ python3 -m arthroplasty_watch backfill --from 2021/01/01 --to 2026/07/25
 
 ---
 
-## 6. 検索式(STEP 1で検証済み)
+## 6. 検索式(すべてPubMed実機で検証済み)
 
 言語制限は設けない(翻訳可能なため、質の高い研究は言語を問わず取り込む)。
-質の担保は「A=研究デザイン」「B=コア誌」で行う。
+質の担保は研究デザインとコア誌で行う。件数は2026-07-25時点の過去1年の実測値。
 
-| チャンネル | 内容 | 過去1年の実測 |
+| トピック | チャンネル | 実測(年) |
 |---|---|--:|
-| A 高エビデンス | KS AND (RCT[pt] OR meta-analysis[pt] OR registry[tiab] OR survivorship[tiab]) NOT 症例報告 | 804件 |
-| B コアジャーナル | KS AND (9誌) NOT 症例報告 | 1,214件 |
-| C 症例報告 | KS AND case reports[pt] | 281件 |
+| 膝 | A: RCT・メタ解析 / B: コア5誌 / C: 症例報告 | A∪B 958 / C 211 |
+| 肩 | A: ＋レジストリ・survivorship / B: 肩関連9誌 / C | A 104 / B 401 / C 71 |
+| 腱板 | A: ＋retear・healing rate / B: 肩スポーツ10誌 / C | A 302 / B 462 / C 99 |
+| PRP | A: 運動器限定PRP全般 / C: 症例報告 | A 540 / C 14 |
+| 感染症 | A: ＋ガイドライン・SR / B: 感染症整形6誌 / C | A 114 / B 315 / C 410 |
 
-※ 件数は2026-07-24時点でPubMedに問い合わせた実測値。日々変動する。
-※ A∪Bは重複があるため単純合計より少ない。実数は初回実行時に表示される。
+### 検証で判明した重要事項
 
-### STEP 1 検証結果
+**使ってはいけない略語**(単独ではノイズが多すぎる):
 
-- MeSH 4語すべてが正式見出し語であることを確認(`[Mesh]` → `[MeSH Terms]` に解決)
-- 雑誌9誌すべてが正式NLM略称であることを確認(`[ta]` → `[Journal]` に解決)
-- 「Knee」は誌名 *The Knee* であることをレコードのメタデータで確認
-- KSの全tiab語(12語)・チャンネルAの全フィルタ語が0件でないことを確認(静かな0件なし)
+| 略語 | 総数 | ノイズ | 内容 |
+|---|--:|--:|---|
+| `RSA[tiab]` | 9,413 | 8,049 (85%) | radiostereometric analysis 等 |
+| `PRP[tiab]` | 23,303 | 12,846 (55%) | prion protein (PrP) 等 |
+| `SSI[tiab]` | — | 4,506 | Sleep Severity Index 等 |
+
+`PJI[tiab]` はノイズ334件(6%)のみのため使用可。
+
+**リバース型人工肩関節(RSA)は肩トピックに統合**。RSAブロック655件/年のうち、
+肩ブロックで捕捉できないのは12件のみだったため、独立トピックにすると98%が重複する。
+
+その他の検証結果:
+
+- 全MeSH語が正式見出し語であることを確認(`[Mesh]` → `[MeSH Terms]` に解決)
+- 全雑誌略記が正式NLM略称であることを確認(`[ta]` → `[Journal]` に解決)
+- 各語が単体で0件でないことを確認(静かな0件なし)
 
 検索式を変更した場合は、同じ検証(各語の単体件数確認)をやり直すこと。
-検索式は `arthroplasty_watch/queries.py` にある。実際に使った式は毎回ノート末尾にも記録される。
+検索式は `arthroplasty_watch/topics.py` にある。実際に使った式は毎回ノート末尾にも記録される。
 
 ---
 
@@ -306,12 +338,16 @@ python3 -m arthroplasty_watch backfill --from 2021/01/01 --to 2026/07/25
 
 | コマンド | 用途 |
 |---|---|
-| `python3 -m arthroplasty_watch run` | 週次取得 |
+| `python3 -m arthroplasty_watch run` | 全トピックの週次取得 |
 | `python3 -m arthroplasty_watch run --dry-run` | 件数だけ確認 |
+| `python3 -m arthroplasty_watch run --topics knee cuff` | トピックを指定して実行 |
 | `python3 -m arthroplasty_watch run --reldate 30` | 直近30日で取得 |
-| `python3 -m arthroplasty_watch backfill --from 2021/01/01 --to 2026/07/25` | 遡り取得 |
-| `python3 -m arthroplasty_watch search-cases "検索語"` | 症例報告の検索 |
+| `python3 -m arthroplasty_watch topics` | トピック一覧と出力先 |
+| `python3 -m arthroplasty_watch backfill --from 2021/01/01 --to 2026/07/25 --topics infection` | 遡り取得 |
+| `python3 -m arthroplasty_watch search-cases "検索語"` | 症例報告の横断検索 |
 | `python3 -m arthroplasty_watch stats` | 現在の状態 |
+
+トピックID: `knee` `shoulder` `cuff` `prp` `infection`
 
 ### 注意: コマンドをコピーするとき
 

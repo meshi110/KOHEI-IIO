@@ -1,23 +1,27 @@
 """コマンドラインインタフェース。
 
-  python3 -m arthroplasty_watch run              週次取得(cronから呼ぶのはこれ)
+  python3 -m arthroplasty_watch run              全トピックの週次取得(cronから呼ぶのはこれ)
   python3 -m arthroplasty_watch run --dry-run    件数だけ確認(書き込み・状態更新なし)
-  python3 -m arthroplasty_watch backfill ...     過去分の遡り取得(症例報告の保管庫作りなど)
-  python3 -m arthroplasty_watch search-cases ... 症例報告保管庫の検索
-  python3 -m arthroplasty_watch stats            現在の状態を表示
+  python3 -m arthroplasty_watch run --topics knee cuff   トピックを指定して実行
+  python3 -m arthroplasty_watch backfill ...     過去分の遡り取得
+  python3 -m arthroplasty_watch search-cases ... 症例報告保管庫の横断検索
+  python3 -m arthroplasty_watch topics           トピック一覧
+  python3 -m arthroplasty_watch stats            現在の状態
 """
 
 import argparse
 import sys
 from datetime import datetime
 
+from . import archive as archive_mod
 from .archive import CaseArchive
 from .config import ConfigError, load_config
 from .eutils import EUtilsClient, EUtilsError
+from .migrate import migrate_legacy_state
 from .parse import failed_article, parse_documents
-from .queries import CASE_REPORT_CHANNEL, CHANNEL_LABELS, CHANNELS, MAIN_CHANNELS
 from .render import render_note, write_note
 from .state import SeenStore
+from .topics import DEFAULT_TOPIC_IDS, TOPICS, get_topic
 
 
 def _build_client(config):
@@ -34,32 +38,15 @@ def _build_client(config):
 
 def _check_vault(config, allow_create):
     """iCloudが未同期のときに、意図しない場所へ書き込むのを防ぐ。"""
-    parent = config.vault_dir.parent
     if config.vault_dir.exists() or allow_create:
         return
+    parent = config.vault_dir.parent
     if not parent.exists():
         raise ConfigError(
             f"vaultの親フォルダが見つかりません: {parent}\n"
             "iCloud Driveが同期されているか、.env の VAULT_DIR が正しいか確認してください。\n"
             "意図的に新規作成する場合は --create-vault を付けてください。"
         )
-
-
-def _search_channels(client, config, *, reldate=None, mindate=None, maxdate=None,
-                     channels=None):
-    selected = channels or list(CHANNELS.keys())
-    results = {}
-    for channel in selected:
-        term = CHANNELS[channel]
-        found = client.esearch(
-            term, reldate=reldate, mindate=mindate, maxdate=maxdate
-        )
-        results[channel] = found
-        print(
-            f"  チャンネル{channel}({CHANNEL_LABELS[channel]}): {found['count']}件",
-            flush=True,
-        )
-    return results
 
 
 def _resolve_output_path(base_path, has_new_articles):
@@ -107,92 +94,95 @@ def _fetch_articles(client, pmids):
     return by_pmid, failures
 
 
-def cmd_run(args, config):
-    print("設定:")
-    print(config.describe())
-    print()
+def _selected_topics(args):
+    ids = getattr(args, "topics", None) or DEFAULT_TOPIC_IDS
+    return [get_topic(topic_id) for topic_id in ids]
 
-    client = _build_client(config)
-    if not args.dry_run:
-        _check_vault(config, args.create_vault)
 
-    store = SeenStore(config.state_path).load()
-    date_str = datetime.now().strftime("%Y-%m-%d")
-    reldate = args.reldate if args.reldate is not None else config.reldate
+def _search_topic(client, topic, *, reldate=None, mindate=None, maxdate=None):
+    results = {}
+    for channel in topic.channels:
+        found = client.esearch(
+            channel.query, reldate=reldate, mindate=mindate, maxdate=maxdate
+        )
+        results[channel.key] = found
+        print(f"    {channel.key}({channel.label}): {found['count']}件", flush=True)
+    return results
 
-    print(f"PubMed検索中(edat 直近{reldate}日)...")
-    search_results = _search_channels(client, config, reldate=reldate)
 
-    # A∪B を本体、C(症例報告)を別建てにする。
+def _run_topic(client, config, topic, *, date_str, reldate, dry_run):
+    """1トピックを処理し、サマリ辞書を返す。"""
+    print(f"\n[{topic.label}]")
+    search_results = _search_topic(client, topic, reldate=reldate)
+
+    channel_labels = {c.key: c.label for c in topic.channels}
+    store = SeenStore(config.state_path(topic.id)).load()
+
     main_pmids = []
     channel_membership = {}
-    for channel in MAIN_CHANNELS:
-        for pmid in search_results[channel]["pmids"]:
-            channel_membership.setdefault(pmid, set()).add(channel)
+    for channel in topic.main_channels:
+        for pmid in search_results[channel.key]["pmids"]:
+            channel_membership.setdefault(pmid, set()).add(channel.key)
             if pmid not in main_pmids:
                 main_pmids.append(pmid)
 
+    case_channel = topic.case_channel
     case_pmids = []
-    for pmid in search_results[CASE_REPORT_CHANNEL]["pmids"]:
-        channel_membership.setdefault(pmid, set()).add(CASE_REPORT_CHANNEL)
-        if pmid not in case_pmids:
-            case_pmids.append(pmid)
+    if case_channel:
+        for pmid in search_results[case_channel.key]["pmids"]:
+            channel_membership.setdefault(pmid, set()).add(case_channel.key)
+            if pmid not in case_pmids:
+                case_pmids.append(pmid)
 
     new_main = store.new_pmids(main_pmids)
-    new_case = [pmid for pmid in store.new_pmids(case_pmids) if pmid not in set(new_main)]
+    new_case = [p for p in store.new_pmids(case_pmids) if p not in set(new_main)]
 
-    print()
-    print(f"  A∪B 重複除去後: {len(main_pmids)}件 / うち新規 {len(new_main)}件")
-    print(f"  C(症例報告)   : {len(case_pmids)}件 / うち新規 {len(new_case)}件")
+    print(f"    -> 本体 {len(main_pmids)}件(新規 {len(new_main)}件) / "
+          f"症例報告 {len(case_pmids)}件(新規 {len(new_case)}件)")
 
-    if args.dry_run:
-        print("\n--dry-run のため、取得・書き込み・状態更新は行いません。")
-        return 0
+    summary = {
+        "topic": topic,
+        "new_main": len(new_main),
+        "new_case": len(new_case),
+        "failures": [],
+    }
+    if dry_run:
+        return summary
 
-    print("\nメタデータ取得中...")
     articles, failures = _fetch_articles(client, new_main + new_case)
+    summary["failures"] = failures
 
-    main_articles = []
-    for pmid in new_main:
-        article = articles[pmid]
-        article.channels = sorted(channel_membership.get(pmid, []))
-        main_articles.append(article)
+    def collect(pmids):
+        out = []
+        for pmid in pmids:
+            article = articles[pmid]
+            article.channels = sorted(channel_membership.get(pmid, []))
+            out.append(article)
+        return out
 
-    case_articles = []
-    for pmid in new_case:
-        article = articles[pmid]
-        article.channels = sorted(channel_membership.get(pmid, []))
-        case_articles.append(article)
+    main_articles = collect(new_main)
+    case_articles = collect(new_case)
 
     # 取得に失敗したPMIDは「取得済み」にしない(次回再取得するため)。
-    succeeded = {
-        pmid for pmid, article in articles.items() if not article.fetch_failed
-    }
     for pmid in new_main + new_case:
-        if pmid in succeeded:
+        if not articles[pmid].fetch_failed:
             store.mark_seen(pmid, date_str, channel_membership.get(pmid, []))
 
     counts_main = {
-        channel: {
-            "total": search_results[channel]["count"],
+        c.key: {
+            "total": search_results[c.key]["count"],
             "new": len(
-                [p for p in new_main if channel in channel_membership.get(p, set())]
+                [p for p in new_main if c.key in channel_membership.get(p, set())]
             ),
         }
-        for channel in MAIN_CHANNELS
-    }
-    counts_case = {
-        CASE_REPORT_CHANNEL: {
-            "total": search_results[CASE_REPORT_CHANNEL]["count"],
-            "new": len(new_case),
-        }
+        for c in topic.main_channels
     }
 
     main_path = _resolve_output_path(
-        config.main_output_dir / f"{date_str}.md", bool(main_articles)
+        config.main_output_dir(topic) / f"{date_str}.md", bool(main_articles)
     )
     if main_path is None:
-        print(f"\n新着なし。既存ノートを保持します: {config.main_output_dir / f'{date_str}.md'}")
+        print("    新着なし。既存ノートを保持します")
     else:
         write_note(
             main_path,
@@ -203,167 +193,237 @@ def cmd_run(args, config):
                 new_total=len(main_articles),
                 seen_total=len(store),
                 reldate=reldate,
-                query_map={ch: CHANNELS[ch] for ch in MAIN_CHANNELS},
-                failures=[
-                    f
-                    for f in failures
-                    if any(p in set(new_main) for p in f["pmids"])
-                ],
+                query_map={c.key: c.query for c in topic.main_channels},
+                failures=[f for f in failures
+                          if any(p in set(new_main) for p in f["pmids"])],
+                tags=topic.tags,
+                topic_label=topic.label,
+                channel_labels=channel_labels,
+                topic_note=topic.note,
             ),
         )
-        print(f"\n出力: {main_path}")
+        print(f"    出力: {main_path}")
 
-    if case_articles or counts_case[CASE_REPORT_CHANNEL]["total"]:
-        case_path = _resolve_output_path(
-            config.case_output_dir / f"{date_str}.md", bool(case_articles)
-        )
-        if case_path is not None:
-            write_note(
-                case_path,
-                render_note(
-                    date_str=date_str,
-                    articles=case_articles,
-                    channel_counts=counts_case,
-                    new_total=len(case_articles),
-                    seen_total=len(store),
-                    reldate=reldate,
-                    query_map={CASE_REPORT_CHANNEL: CHANNELS[CASE_REPORT_CHANNEL]},
-                    failures=[
-                        f
-                        for f in failures
-                        if any(p in set(new_case) for p in f["pmids"])
-                    ],
-                    title_suffix=" (症例報告)",
-                    tags=["文献監視", "人工関節", "症例報告"],
-                ),
+    if case_channel:
+        counts_case = {
+            case_channel.key: {
+                "total": search_results[case_channel.key]["count"],
+                "new": len(new_case),
+            }
+        }
+        if case_articles or counts_case[case_channel.key]["total"]:
+            case_path = _resolve_output_path(
+                config.case_output_dir(topic) / f"{date_str}.md", bool(case_articles)
             )
-            print(f"出力: {case_path}")
+            if case_path is not None:
+                write_note(
+                    case_path,
+                    render_note(
+                        date_str=date_str,
+                        articles=case_articles,
+                        channel_counts=counts_case,
+                        new_total=len(case_articles),
+                        seen_total=len(store),
+                        reldate=reldate,
+                        query_map={case_channel.key: case_channel.query},
+                        failures=[f for f in failures
+                                  if any(p in set(new_case) for p in f["pmids"])],
+                        tags=topic.tags + ["症例報告"],
+                        topic_label=topic.label,
+                        channel_labels=channel_labels,
+                        topic_note=topic.note,
+                        title_suffix=" (症例報告)",
+                    ),
+                )
+                print(f"    出力: {case_path}")
 
-    archive = CaseArchive(config.case_archive_path)
-    added = archive.append(
-        [a for a in case_articles if not a.fetch_failed], retrieved_on=date_str
-    )
-    print(f"症例報告保管庫: {added}件を追加(累計 {archive.count()}件)")
+        case_archive = CaseArchive(config.case_archive_path(topic.id))
+        added = case_archive.append(
+            [a for a in case_articles if not a.fetch_failed], retrieved_on=date_str
+        )
+        if added:
+            print(f"    症例報告保管庫: {added}件を追加(累計 {case_archive.count()}件)")
 
     store.save(last_run=datetime.now().isoformat(timespec="seconds"))
-    print(f"状態を更新: 既取得PMID累計 {len(store)}件")
+    return summary
 
-    if failures:
-        print("\n取得失敗があります(次回再取得します):", file=sys.stderr)
-        for failure in failures:
-            print(
-                f"  PMID {', '.join(failure['pmids'])}: {failure['reason']}",
-                file=sys.stderr,
+
+def cmd_run(args, config):
+    print("設定:")
+    print(config.describe())
+
+    for message in migrate_legacy_state(config):
+        print(f"  [移行] {message}")
+    print()
+
+    client = _build_client(config)
+    if not args.dry_run:
+        _check_vault(config, args.create_vault)
+
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    reldate = args.reldate if args.reldate is not None else config.reldate
+    topics = _selected_topics(args)
+
+    print(f"PubMed検索中(edat 直近{reldate}日) / 対象{len(topics)}トピック")
+
+    summaries = []
+    for topic in topics:
+        summaries.append(
+            _run_topic(
+                client, config, topic,
+                date_str=date_str, reldate=reldate, dry_run=args.dry_run,
             )
+        )
+
+    print("\n" + "=" * 50)
+    total_main = sum(s["new_main"] for s in summaries)
+    total_case = sum(s["new_case"] for s in summaries)
+    for summary in summaries:
+        print(f"  {summary['topic'].label}: 新規 本体{summary['new_main']}件 / "
+              f"症例報告{summary['new_case']}件")
+    print(f"  合計: 本体{total_main}件 / 症例報告{total_case}件")
+
+    if args.dry_run:
+        print("\n--dry-run のため、取得・書き込み・状態更新は行いませんでした。")
+        return 0
+
+    all_failures = [f for s in summaries for f in s["failures"]]
+    if all_failures:
+        print("\n取得失敗があります(次回再取得します):", file=sys.stderr)
+        for failure in all_failures:
+            print(f"  PMID {', '.join(failure['pmids'])}: {failure['reason']}",
+                  file=sys.stderr)
     return 0
 
 
 def cmd_backfill(args, config):
-    """過去分の遡り取得。症例報告の保管庫を最初に作るときなどに使う。"""
+    """過去分の遡り取得。症例報告の保管庫を作るときなどに使う。"""
     print("設定:")
     print(config.describe())
+    for message in migrate_legacy_state(config):
+        print(f"  [移行] {message}")
     print()
 
     client = _build_client(config)
     _check_vault(config, args.create_vault)
 
-    store = SeenStore(config.state_path).load()
     date_str = datetime.now().strftime("%Y-%m-%d")
-    channels = args.channels or [CASE_REPORT_CHANNEL]
+    topics = _selected_topics(args)
+    period = f"{args.date_from}〜{args.date_to}(遡り取得)"
 
-    print(f"PubMed検索中(edat {args.date_from} 〜 {args.date_to})...")
-    search_results = _search_channels(
-        client, config, mindate=args.date_from, maxdate=args.date_to, channels=channels
-    )
+    print(f"PubMed検索中(edat {args.date_from} 〜 {args.date_to})")
 
-    all_pmids = []
-    channel_membership = {}
-    for channel in channels:
-        for pmid in search_results[channel]["pmids"]:
-            channel_membership.setdefault(pmid, set()).add(channel)
-            if pmid not in all_pmids:
-                all_pmids.append(pmid)
+    for topic in topics:
+        print(f"\n[{topic.label}]")
+        channels = topic.channels
+        if args.case_reports_only:
+            channels = [c for c in channels if c.is_case_reports]
+            if not channels:
+                print("    症例報告チャンネルがないためスキップします")
+                continue
 
-    new_pmids = store.new_pmids(all_pmids)
-    print(f"\n  重複除去後 {len(all_pmids)}件 / うち新規 {len(new_pmids)}件")
+        channel_labels = {c.key: c.label for c in topic.channels}
+        store = SeenStore(config.state_path(topic.id)).load()
+
+        search_results = {}
+        all_pmids = []
+        channel_membership = {}
+        for channel in channels:
+            found = client.esearch(
+                channel.query, mindate=args.date_from, maxdate=args.date_to
+            )
+            search_results[channel.key] = found
+            print(f"    {channel.key}({channel.label}): {found['count']}件", flush=True)
+            for pmid in found["pmids"]:
+                channel_membership.setdefault(pmid, set()).add(channel.key)
+                if pmid not in all_pmids:
+                    all_pmids.append(pmid)
+
+        new_pmids = store.new_pmids(all_pmids)
+        print(f"    -> 重複除去後 {len(all_pmids)}件 / 新規 {len(new_pmids)}件")
+
+        if args.dry_run or not new_pmids:
+            continue
+
+        print("    メタデータ取得中(件数によっては時間がかかります)...")
+        articles, failures = _fetch_articles(client, new_pmids)
+
+        collected = []
+        for pmid in new_pmids:
+            article = articles[pmid]
+            article.channels = sorted(channel_membership.get(pmid, []))
+            collected.append(article)
+
+        case_channel = topic.case_channel
+        if case_channel:
+            case_archive = CaseArchive(config.case_archive_path(topic.id))
+            case_only = [
+                a for a in collected
+                if not a.fetch_failed and case_channel.key in a.channels
+            ]
+            added = case_archive.append(case_only, retrieved_on=date_str)
+            print(f"    症例報告保管庫: {added}件を追加"
+                  f"(累計 {case_archive.count()}件)")
+
+        out_name = (f"backfill_{args.date_from.replace('/', '-')}_"
+                    f"{args.date_to.replace('/', '-')}.md")
+        out_path = _resolve_output_path(
+            config.main_output_dir(topic) / out_name, bool(collected)
+        )
+        if out_path is not None:
+            write_note(
+                out_path,
+                render_note(
+                    date_str=date_str,
+                    articles=collected,
+                    channel_counts={
+                        c.key: {
+                            "total": search_results[c.key]["count"],
+                            "new": len([p for p in new_pmids
+                                        if c.key in channel_membership.get(p, set())]),
+                        }
+                        for c in channels
+                    },
+                    new_total=len(collected),
+                    seen_total=len(store) + len(collected),
+                    reldate=period,
+                    query_map={c.key: c.query for c in channels},
+                    failures=failures,
+                    tags=topic.tags,
+                    topic_label=topic.label,
+                    channel_labels=channel_labels,
+                    topic_note=topic.note,
+                    title_suffix=" (遡り取得)",
+                ),
+            )
+            print(f"    出力: {out_path}")
+
+        for pmid in new_pmids:
+            if not articles[pmid].fetch_failed:
+                store.mark_seen(pmid, date_str, channel_membership.get(pmid, []))
+        store.save(last_run=datetime.now().isoformat(timespec="seconds"))
 
     if args.dry_run:
-        print("\n--dry-run のため、取得・書き込み・状態更新は行いません。")
-        return 0
-    if not new_pmids:
-        print("新規はありません。")
-        return 0
-
-    print("\nメタデータ取得中(件数によっては時間がかかります)...")
-    articles, failures = _fetch_articles(client, new_pmids)
-
-    collected = []
-    for pmid in new_pmids:
-        article = articles[pmid]
-        article.channels = sorted(channel_membership.get(pmid, []))
-        collected.append(article)
-
-    archive = CaseArchive(config.case_archive_path)
-    added = 0
-    if CASE_REPORT_CHANNEL in channels:
-        case_only = [
-            a
-            for a in collected
-            if not a.fetch_failed and CASE_REPORT_CHANNEL in a.channels
-        ]
-        added = archive.append(case_only, retrieved_on=date_str)
-
-    out_path = (
-        config.case_output_dir / f"backfill_{args.date_from.replace('/', '-')}_"
-        f"{args.date_to.replace('/', '-')}.md"
-    )
-    write_note(
-        out_path,
-        render_note(
-            date_str=date_str,
-            articles=collected,
-            channel_counts={
-                ch: {
-                    "total": search_results[ch]["count"],
-                    "new": len(
-                        [p for p in new_pmids if ch in channel_membership.get(p, set())]
-                    ),
-                }
-                for ch in channels
-            },
-            new_total=len(collected),
-            seen_total=len(store) + len(collected),
-            reldate=f"{args.date_from}〜{args.date_to}(遡り取得)",
-            query_map={ch: CHANNELS[ch] for ch in channels},
-            failures=failures,
-            title_suffix=" (遡り取得)",
-            tags=["文献監視", "人工関節", "症例報告"],
-        ),
-    )
-
-    for pmid in new_pmids:
-        if not articles[pmid].fetch_failed:
-            store.mark_seen(pmid, date_str, channel_membership.get(pmid, []))
-    store.save(last_run=datetime.now().isoformat(timespec="seconds"))
-
-    print(f"\n出力: {out_path}")
-    print(f"症例報告保管庫: {added}件を追加(累計 {archive.count()}件)")
-    print(f"状態を更新: 既取得PMID累計 {len(store)}件")
+        print("\n--dry-run のため、取得・書き込み・状態更新は行いませんでした。")
     return 0
 
 
 def cmd_search_cases(args, config):
-    archive = CaseArchive(config.case_archive_path)
-    total = archive.count()
+    migrate_legacy_state(config)
+    counts = archive_mod.count_all(config.state_dir)
+    total = sum(counts.values())
     if total == 0:
-        print(f"症例報告保管庫は空です: {config.case_archive_path}")
+        print(f"症例報告保管庫は空です: {config.state_dir}")
         print("`backfill` で過去分を取り込むか、週次実行の蓄積を待ってください。")
         return 0
 
-    hits = archive.search(args.query, limit=args.limit)
+    hits = archive_mod.search_all(config.state_dir, args.query, limit=args.limit)
     print(f"保管庫 {total}件中 {len(hits)}件が該当(検索語: {args.query})\n")
     for record in hits:
-        print(f"- PMID {record.get('pmid')} | {record.get('journal')} {record.get('year')}")
+        topic_id = record.get("_topic", "")
+        topic_label = TOPICS[topic_id].label if topic_id in TOPICS else topic_id
+        print(f"- [{topic_label}] PMID {record.get('pmid')} | "
+              f"{record.get('journal')} {record.get('year')}")
         print(f"  {record.get('title')}")
         doi = record.get("doi", "")
         if doi and not doi.startswith("記載なし") and doi != "取得失敗":
@@ -373,62 +433,79 @@ def cmd_search_cases(args, config):
     return 0
 
 
+def cmd_topics(args, config):
+    print("登録トピック:\n")
+    for topic in TOPICS.values():
+        print(f"[{topic.id}] {topic.label}")
+        print(f"  出力先: {config.main_output_dir(topic)}")
+        for channel in topic.channels:
+            print(f"  {channel.key}: {channel.label}")
+        print()
+    return 0
+
+
 def cmd_stats(args, config):
     print("設定:")
     print(config.describe())
+    for message in migrate_legacy_state(config):
+        print(f"  [移行] {message}")
     print()
-    store = SeenStore(config.state_path).load()
-    stats = store.stats()
-    print(f"既取得PMID累計 : {stats['total']}件")
-    print(f"最終実行       : {stats['last_run'] or '(未実行)'}")
-    for channel, count in sorted(stats["by_channel"].items()):
-        print(f"  チャンネル{channel}({CHANNEL_LABELS.get(channel, channel)}): {count}件")
-    archive = CaseArchive(config.case_archive_path)
-    print(f"症例報告保管庫 : {archive.count()}件")
+
+    archive_counts = archive_mod.count_all(config.state_dir)
+    for topic in TOPICS.values():
+        store = SeenStore(config.state_path(topic.id)).load()
+        stats = store.stats()
+        print(f"[{topic.label}]")
+        print(f"  既取得PMID : {stats['total']}件")
+        print(f"  最終実行   : {stats['last_run'] or '(未実行)'}")
+        print(f"  症例報告   : {archive_counts.get(topic.id, 0)}件")
+
+    legacy = {k: v for k, v in archive_counts.items() if k not in TOPICS}
+    for name, count in legacy.items():
+        print(f"[移行済み保管庫 {name}] 症例報告 {count}件")
     return 0
 
 
 def build_parser():
     parser = argparse.ArgumentParser(
         prog="arthroplasty_watch",
-        description="人工関節(膝・肩)文献監視エージェント v1 — PubMed新着をMarkdownで出力する",
+        description="整形外科 文献監視エージェント — PubMed新着をMarkdownで出力する",
     )
     parser.add_argument("--env", help="読み込む .env のパス(既定: リポジトリ直下の .env)")
     subparsers = parser.add_subparsers(dest="command")
 
     run_parser = subparsers.add_parser("run", help="週次取得(cronから呼ぶのはこれ)")
     run_parser.add_argument("--reldate", type=int, help="直近N日(既定: .env の RELDATE)")
-    run_parser.add_argument(
-        "--dry-run", action="store_true", help="件数だけ確認し、書き込み・状態更新をしない"
-    )
-    run_parser.add_argument(
-        "--create-vault", action="store_true", help="vaultフォルダが無ければ作成する"
-    )
+    run_parser.add_argument("--topics", nargs="+", choices=sorted(TOPICS),
+                            help="対象トピック(既定: 全部)")
+    run_parser.add_argument("--dry-run", action="store_true",
+                            help="件数だけ確認し、書き込み・状態更新をしない")
+    run_parser.add_argument("--create-vault", action="store_true",
+                            help="vaultフォルダが無ければ作成する")
     run_parser.set_defaults(func=cmd_run)
 
-    backfill_parser = subparsers.add_parser(
-        "backfill", help="過去分の遡り取得(症例報告の保管庫作りなど)"
-    )
+    backfill_parser = subparsers.add_parser("backfill", help="過去分の遡り取得")
     backfill_parser.add_argument("--from", dest="date_from", required=True,
                                  help="開始日 YYYY/MM/DD")
     backfill_parser.add_argument("--to", dest="date_to", required=True,
                                  help="終了日 YYYY/MM/DD")
-    backfill_parser.add_argument(
-        "--channels", nargs="+", choices=sorted(CHANNELS.keys()),
-        help="対象チャンネル(既定: C 症例報告のみ)"
-    )
+    backfill_parser.add_argument("--topics", nargs="+", choices=sorted(TOPICS),
+                                 help="対象トピック(既定: 全部)")
+    backfill_parser.add_argument("--case-reports-only", action="store_true",
+                                 help="症例報告チャンネルのみ遡る")
     backfill_parser.add_argument("--dry-run", action="store_true", help="件数だけ確認する")
-    backfill_parser.add_argument(
-        "--create-vault", action="store_true", help="vaultフォルダが無ければ作成する"
-    )
+    backfill_parser.add_argument("--create-vault", action="store_true",
+                                 help="vaultフォルダが無ければ作成する")
     backfill_parser.set_defaults(func=cmd_backfill)
 
-    search_parser = subparsers.add_parser(
-        "search-cases", help="症例報告保管庫を検索する"
-    )
-    search_parser.add_argument("query", help="検索語(タイトル・抄録・雑誌名・キーワードを対象)")
+    search_parser = subparsers.add_parser("search-cases",
+                                          help="症例報告保管庫を横断検索する")
+    search_parser.add_argument("query", help="検索語(タイトル・抄録・雑誌名・キーワード)")
     search_parser.add_argument("--limit", type=int, default=20, help="最大表示件数")
     search_parser.set_defaults(func=cmd_search_cases)
+
+    topics_parser = subparsers.add_parser("topics", help="トピック一覧を表示する")
+    topics_parser.set_defaults(func=cmd_topics)
 
     stats_parser = subparsers.add_parser("stats", help="現在の状態を表示する")
     stats_parser.set_defaults(func=cmd_stats)
@@ -445,7 +522,7 @@ def main(argv=None):
     try:
         config = load_config(args.env)
         return args.func(args, config)
-    except (ConfigError, EUtilsError, RuntimeError) as exc:
+    except (ConfigError, EUtilsError, RuntimeError, KeyError) as exc:
         print(f"エラー: {exc}", file=sys.stderr)
         return 1
 

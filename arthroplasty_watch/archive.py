@@ -80,3 +80,29 @@ class CaseArchive:
 
     def count(self):
         return sum(1 for _ in self.iter_records())
+
+
+def all_archives(state_dir):
+    """state_dir 内のすべての症例報告保管庫(移行済みの旧保管庫を含む)。"""
+    return [CaseArchive(path) for path in sorted(state_dir.glob("case_reports_*.jsonl"))]
+
+
+def search_all(state_dir, query, limit=20):
+    """全トピックの保管庫を横断検索する。"""
+    hits = []
+    for archive in all_archives(state_dir):
+        topic_id = archive.path.stem.replace("case_reports_", "")
+        for record in archive.search(query, limit=limit):
+            record = dict(record)
+            record["_topic"] = topic_id
+            hits.append(record)
+            if len(hits) >= limit:
+                return hits
+    return hits
+
+
+def count_all(state_dir):
+    return {
+        archive.path.stem.replace("case_reports_", ""): archive.count()
+        for archive in all_archives(state_dir)
+    }
