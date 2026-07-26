@@ -189,6 +189,7 @@ class Topic:
     label: str
     folder: str
     channels: list
+    core: str = ""          # 検索対象を定めるブロック。別フィルタとの合成に使う
     tags: list = field(default_factory=list)
     note: str = ""
 
@@ -210,12 +211,9 @@ class Topic:
         return None
 
 
-def _standard_channels(core_terms, evidence_terms, journals, evidence_label,
-                       journal_label, extra_and=None):
+def _standard_channels(core, evidence_terms, journals, evidence_label,
+                       journal_label):
     """A(エビデンス) / B(コア誌) / C(症例報告) の標準3チャンネル構成。"""
-    core = _or_block(core_terms)
-    if extra_and:
-        core = f"{core} AND {_or_block(extra_and)}"
     channels = [
         Channel(
             key="A",
@@ -242,9 +240,32 @@ def _standard_channels(core_terms, evidence_terms, journals, evidence_label,
     return channels
 
 
+KNEE_CORE = _or_block(KNEE_TERMS)
+SHOULDER_CORE = _or_block(SHOULDER_TERMS)
+CUFF_CORE = _or_block(CUFF_TERMS)
+INFECTION_CORE = _or_block(INFECTION_TERMS)
 # PRPは他トピックと異なり、エビデンスフィルタではなく
 # 「運動器に限定する」ことで件数を絞る構成にしている。
-_PRP_CORE = f"{_or_block(PRP_TERMS)} AND {_or_block(MUSCULOSKELETAL_TERMS)}"
+PRP_CORE = f"{_or_block(PRP_TERMS)} AND {_or_block(MUSCULOSKELETAL_TERMS)}"
+
+# 遡り取得(過去分)用のフィルタ。確立した知識の土台を集めるため、
+# 個々の観察研究ではなくSR・メタ解析・ガイドラインに絞る。
+HIGH_EVIDENCE_TERMS = [
+    "systematic review[pt]",
+    "meta-analysis[pt]",
+    "practice guideline[pt]",
+    "guideline[pt]",
+]
+
+
+def high_evidence_channel(topic):
+    """トピックのコアブロックに高エビデンスフィルタをかけたチャンネル。"""
+    return Channel(
+        key="H",
+        label="高エビデンス(SR/メタ解析/ガイドライン)",
+        query=(f"{topic.core} AND {_or_block(HIGH_EVIDENCE_TERMS)}"
+               f" NOT {CASE_REPORT_PT}"),
+    )
 
 TOPICS = {}
 
@@ -263,8 +284,9 @@ _register(
         label="人工関節(膝)",
         folder="人工関節-膝",
         tags=["文献監視", "人工関節", "膝"],
+        core=KNEE_CORE,
         channels=_standard_channels(
-            KNEE_TERMS,
+            KNEE_CORE,
             EVIDENCE_STRICT,
             KNEE_JOURNALS,
             "高エビデンス(RCT/メタ解析)",
@@ -280,8 +302,9 @@ _register(
         label="人工関節(肩)・リバース型",
         folder="人工関節-肩",
         tags=["文献監視", "人工関節", "肩", "リバース型"],
+        core=SHOULDER_CORE,
         channels=_standard_channels(
-            SHOULDER_TERMS,
+            SHOULDER_CORE,
             EVIDENCE_WITH_REGISTRY,
             SHOULDER_JOURNALS,
             "高エビデンス(RCT/メタ/レジストリ/survivorship)",
@@ -297,8 +320,9 @@ _register(
         label="腱板(修復術・断裂)",
         folder="腱板",
         tags=["文献監視", "腱板"],
+        core=CUFF_CORE,
         channels=_standard_channels(
-            CUFF_TERMS,
+            CUFF_CORE,
             EVIDENCE_CUFF,
             CUFF_JOURNALS,
             "高エビデンス(RCT/メタ/retear/healing rate)",
@@ -315,19 +339,20 @@ _register(
         id="prp",
         label="多血小板血漿(PRP・運動器)",
         folder="PRP",
+        core=PRP_CORE,
         tags=["文献監視", "PRP"],
         channels=[
             Channel(
                 key="A",
                 label="運動器PRP全般",
                 query=(
-                    f"{_PRP_CORE} NOT {CASE_REPORT_PT}"
+                    f"{PRP_CORE} NOT {CASE_REPORT_PT}"
                 ),
             ),
             Channel(
                 key="C",
                 label="症例報告",
-                query=f"{_PRP_CORE} AND {CASE_REPORT_PT}",
+                query=f"{PRP_CORE} AND {CASE_REPORT_PT}",
                 is_case_reports=True,
             ),
         ],
@@ -345,8 +370,9 @@ _register(
         folder="術後感染症",
         tags=["文献監視", "術後感染症"],
         note="臨床判断は行わない。情報収集のみ。治療方針は主治医・専門医の判断による。",
+        core=INFECTION_CORE,
         channels=_standard_channels(
-            INFECTION_TERMS,
+            INFECTION_CORE,
             EVIDENCE_INFECTION,
             INFECTION_JOURNALS,
             "高エビデンス(RCT/メタ/ガイドライン/システマティックレビュー)",

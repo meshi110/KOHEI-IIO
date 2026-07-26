@@ -21,7 +21,7 @@ from .migrate import migrate_legacy_state
 from .parse import failed_article, parse_documents
 from .render import render_note, write_note
 from .state import SeenStore
-from .topics import DEFAULT_TOPIC_IDS, TOPICS, get_topic
+from .topics import DEFAULT_TOPIC_IDS, TOPICS, get_topic, high_evidence_channel
 
 
 def _build_client(config):
@@ -326,7 +326,11 @@ def cmd_backfill(args, config):
     for topic in topics:
         print(f"\n[{topic.label}]")
         channels = topic.channels
-        if args.case_reports_only:
+        if args.high_evidence:
+            # 過去分は確立した知識の土台を集めるため、
+            # 個々の観察研究ではなくSR・メタ解析・ガイドラインに絞る。
+            channels = [high_evidence_channel(topic)]
+        elif args.case_reports_only:
             channels = [c for c in channels if c.is_case_reports]
             if not channels:
                 print("    症例報告チャンネルがないためスキップします")
@@ -519,6 +523,9 @@ def build_parser():
                                  help="終了日 YYYY/MM/DD")
     backfill_parser.add_argument("--topics", nargs="+", choices=sorted(TOPICS),
                                  help="対象トピック(既定: 全部)")
+    backfill_parser.add_argument("--high-evidence", action="store_true",
+                                 help="SR・メタ解析・ガイドラインのみに絞って遡る"
+                                      "(過去分の土台作りに推奨)")
     backfill_parser.add_argument("--case-reports-only", action="store_true",
                                  help="症例報告チャンネルのみ遡る")
     backfill_parser.add_argument("--chunk-size", type=int, default=150,

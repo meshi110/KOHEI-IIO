@@ -131,5 +131,45 @@ class TopicPathTest(unittest.TestCase):
             self.assertNotIn("KOHEI-Vault", str(path))
 
 
+
+class HighEvidenceChannelTest(unittest.TestCase):
+    """過去分の遡り取得用フィルタ(SR・メタ解析・ガイドライン)。"""
+
+    def test_available_for_every_topic(self):
+        from arthroplasty_watch.topics import high_evidence_channel
+
+        for topic in TOPICS.values():
+            channel = high_evidence_channel(topic)
+            self.assertTrue(channel.query, topic.id)
+            self.assertFalse(channel.is_case_reports, topic.id)
+
+    def test_filters_to_high_evidence_publication_types(self):
+        from arthroplasty_watch.topics import high_evidence_channel
+
+        query = high_evidence_channel(get_topic("knee")).query
+        for term in ("systematic review[pt]", "meta-analysis[pt]",
+                     "practice guideline[pt]", "guideline[pt]"):
+            self.assertIn(term, query)
+        # 個々の観察研究やコア誌フィルタは使わない。
+        self.assertNotIn("[ta]", query)
+        self.assertIn("NOT case reports[pt]", query)
+
+    def test_keeps_the_topic_core_block(self):
+        from arthroplasty_watch.topics import high_evidence_channel
+
+        for topic in TOPICS.values():
+            self.assertIn(topic.core, high_evidence_channel(topic).query, topic.id)
+
+    def test_prp_core_keeps_musculoskeletal_restriction(self):
+        from arthroplasty_watch.topics import high_evidence_channel
+
+        query = high_evidence_channel(get_topic("prp")).query
+        self.assertIn('"Musculoskeletal Diseases"[Mesh]', query)
+
+    def test_every_topic_exposes_its_core(self):
+        for topic in TOPICS.values():
+            self.assertTrue(topic.core, topic.id)
+            self.assertNotIn("\n", topic.core, topic.id)
+
 if __name__ == "__main__":
     unittest.main()
