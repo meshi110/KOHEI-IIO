@@ -262,17 +262,20 @@ python3 -m arthroplasty_watch search-cases "periprosthetic fracture" --limit 50
 保管庫は週次実行で少しずつ貯まる。**過去分を最初にまとめて入れたい場合**は遡り取得を使う
 (過去1年の症例報告は実測281件。5年分でも1400件程度):
 
-まず件数を確認する:
+まず件数を確認する(トピックを指定できる):
 
 ```bash
-python3 -m arthroplasty_watch backfill --from 2021/01/01 --to 2026/07/25 --dry-run
+python3 -m arthroplasty_watch backfill --from 2024/01/01 --to 2026/07/25 --topics infection --dry-run
 ```
 
-問題なければ実行する(件数によっては数分かかる):
+問題なければ実行する:
 
 ```bash
-python3 -m arthroplasty_watch backfill --from 2021/01/01 --to 2026/07/25
+python3 -m arthroplasty_watch backfill --from 2024/01/01 --to 2026/07/25 --topics infection
 ```
+
+出力は1ファイル150件ずつに分割される(`--chunk-size` で変更可)。
+全件を1ファイルに書くとObsidianが開けない大きさになるため。
 
 ---
 

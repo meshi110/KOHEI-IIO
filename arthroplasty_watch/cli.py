@@ -70,6 +70,16 @@ def _resolve_output_path(base_path, has_new_articles):
     return base_path.with_name(f"{base_path.stem}_overflow{base_path.suffix}")
 
 
+def _chunk_articles(articles, chunk_size):
+    """遡り取得の結果を分割する。
+
+    全件を1ファイルに書くとObsidianが開けない大きさになる
+    (膝3年分で約3,500件・7MB相当)ため、件数で区切る。
+    """
+    size = max(1, chunk_size)
+    return [articles[i:i + size] for i in range(0, len(articles), size)]
+
+
 def _fetch_articles(client, pmids):
     """PMIDのメタデータを取得。失敗分は「取得失敗」スタブとして返す。"""
     if not pmids:
@@ -365,38 +375,56 @@ def cmd_backfill(args, config):
             print(f"    症例報告保管庫: {added}件を追加"
                   f"(累計 {case_archive.count()}件)")
 
-        out_name = (f"backfill_{args.date_from.replace('/', '-')}_"
-                    f"{args.date_to.replace('/', '-')}.md")
-        out_path = _resolve_output_path(
-            config.main_output_dir(topic) / out_name, bool(collected)
-        )
-        if out_path is not None:
+        chunk_size = max(1, args.chunk_size)
+        chunks = _chunk_articles(collected, chunk_size)
+        base = (f"backfill_{args.date_from.replace('/', '-')}_"
+                f"{args.date_to.replace('/', '-')}")
+        counts = {
+            c.key: {
+                "total": search_results[c.key]["count"],
+                "new": len([p for p in new_pmids
+                            if c.key in channel_membership.get(p, set())]),
+            }
+            for c in channels
+        }
+
+        written = 0
+        for index, chunk_articles in enumerate(chunks, start=1):
+            if len(chunks) > 1:
+                name = f"{base}_{index:02d}.md"
+                suffix = f" (遡り取得 {index}/{len(chunks)})"
+            else:
+                name = f"{base}.md"
+                suffix = " (遡り取得)"
+            out_path = _resolve_output_path(
+                config.main_output_dir(topic) / name, bool(chunk_articles)
+            )
+            if out_path is None:
+                continue
+            chunk_pmids = {a.pmid for a in chunk_articles}
             write_note(
                 out_path,
                 render_note(
                     date_str=date_str,
-                    articles=collected,
-                    channel_counts={
-                        c.key: {
-                            "total": search_results[c.key]["count"],
-                            "new": len([p for p in new_pmids
-                                        if c.key in channel_membership.get(p, set())]),
-                        }
-                        for c in channels
-                    },
-                    new_total=len(collected),
+                    articles=chunk_articles,
+                    channel_counts=counts,
+                    new_total=len(chunk_articles),
                     seen_total=len(store) + len(collected),
                     reldate=period,
                     query_map={c.key: c.query for c in channels},
-                    failures=failures,
+                    failures=[f for f in failures
+                              if any(p in chunk_pmids for p in f["pmids"])],
                     tags=topic.tags,
                     topic_label=topic.label,
                     channel_labels=channel_labels,
                     topic_note=topic.note,
-                    title_suffix=" (遡り取得)",
+                    title_suffix=suffix,
                 ),
             )
-            print(f"    出力: {out_path}")
+            written += 1
+        if written:
+            print(f"    出力: {written}ファイル ({base}*.md, 1ファイルあたり最大"
+                  f"{chunk_size}件)")
 
         for pmid in new_pmids:
             if not articles[pmid].fetch_failed:
@@ -493,6 +521,9 @@ def build_parser():
                                  help="対象トピック(既定: 全部)")
     backfill_parser.add_argument("--case-reports-only", action="store_true",
                                  help="症例報告チャンネルのみ遡る")
+    backfill_parser.add_argument("--chunk-size", type=int, default=150,
+                                 help="1ファイルあたりの最大件数(既定150)。"
+                                      "Obsidianが開けなくなるのを防ぐため分割する")
     backfill_parser.add_argument("--dry-run", action="store_true", help="件数だけ確認する")
     backfill_parser.add_argument("--create-vault", action="store_true",
                                  help="vaultフォルダが無ければ作成する")

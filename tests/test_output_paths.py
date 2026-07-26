@@ -42,5 +42,35 @@ class ResolveOutputPathTest(unittest.TestCase):
             self.assertEqual(base.read_text(encoding="utf-8"), "1回目の記録")
 
 
+
+class ChunkArticlesTest(unittest.TestCase):
+    """遡り取得の分割。1ファイルが大きすぎるとObsidianが開けなくなる。"""
+
+    def test_splits_into_chunks_without_losing_items(self):
+        from arthroplasty_watch.cli import _chunk_articles
+
+        items = list(range(500))
+        chunks = _chunk_articles(items, 150)
+        self.assertEqual(len(chunks), 4)
+        self.assertEqual([len(c) for c in chunks], [150, 150, 150, 50])
+        # 全件が保存され、順序も保たれる。
+        self.assertEqual([x for c in chunks for x in c], items)
+
+    def test_single_chunk_when_small(self):
+        from arthroplasty_watch.cli import _chunk_articles
+
+        self.assertEqual(_chunk_articles([1, 2, 3], 150), [[1, 2, 3]])
+
+    def test_empty_input(self):
+        from arthroplasty_watch.cli import _chunk_articles
+
+        self.assertEqual(_chunk_articles([], 150), [])
+
+    def test_invalid_chunk_size_does_not_hang(self):
+        from arthroplasty_watch.cli import _chunk_articles
+
+        self.assertEqual(_chunk_articles([1, 2], 0), [[1], [2]])
+        self.assertEqual(_chunk_articles([1, 2], -5), [[1], [2]])
+
 if __name__ == "__main__":
     unittest.main()
