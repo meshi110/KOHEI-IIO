@@ -4,6 +4,14 @@
 # 実行時の状態(取得済みPMID・症例報告保管庫)
 state/
 
+# 患者データは絶対にコミットしない(誤コミット防止)
+registry/
+*.sqlite
+*.sqlite3
+*.db
+対応表*
+linkage*
+
 # Python
 __pycache__/
 *.py[cod]
