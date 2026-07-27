@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ortho English">
+<title>Ortho English Coach</title>
+<style>
+:root{
+  --bg:#0b1020; --bg2:#0f172a; --card:#182135; --card2:#1e293b;
+  --line:#2b3a55; --txt:#e8eefc; --sub:#93a4c4; --dim:#64748b;
+  --acc:#60a5fa; --acc2:#38bdf8; --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444;
+}
+body.street{ --acc:#f472b6; --acc2:#fbbf24; --bg:#140b1a; --bg2:#1b0f24; --card:#241432; --card2:#2c1a3d; --line:#43265c; }
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Hiragino Sans','Noto Sans JP',sans-serif;
+  background:linear-gradient(180deg,var(--bg),var(--bg2) 40%,var(--bg));
+  background-attachment:fixed; color:var(--txt); min-height:100vh;
+  padding-bottom:calc(84px + env(safe-area-inset-bottom,0px));
+  -webkit-font-smoothing:antialiased; transition:background .3s;
+}
+.wrap{max-width:720px;margin:0 auto;padding:0 14px}
+
+/* header */
+header{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);
+  background:var(--bg);
+  background:color-mix(in srgb, var(--bg) 82%, transparent);
+  border-bottom:1px solid var(--line);padding-top:env(safe-area-inset-top,0px)}
+.hd{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 0 10px}
+.brand{display:flex;align-items:baseline;gap:8px;min-width:0}
+.brand h1{font-size:17px;font-weight:800;letter-spacing:.2px;white-space:nowrap}
+.brand small{color:var(--sub);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.modesw{display:flex;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px;gap:2px}
+.modesw button{border:0;background:transparent;color:var(--sub);font-size:12px;font-weight:700;
+  padding:7px 11px;border-radius:999px;cursor:pointer;white-space:nowrap;font-family:inherit}
+.modesw button.on{background:var(--acc);color:#0b1020}
+.tagline{font-size:12px;color:var(--sub);padding:0 0 10px}
+
+/* tabs (bottom) */
+nav{position:fixed;left:0;right:0;bottom:0;z-index:60;
+  background:var(--bg);
+  background:color-mix(in srgb, var(--bg) 92%, transparent);backdrop-filter:blur(14px);
+  border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+.navin{max-width:720px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr)}
+nav button{background:none;border:0;color:var(--dim);padding:9px 4px 10px;font-size:10px;font-weight:700;
+  display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;font-family:inherit}
+nav button i{font-style:normal;font-size:19px;line-height:1}
+nav button.on{color:var(--acc)}
+
+/* generic */
+.sec{margin:14px 0}
+.h2{font-size:13px;color:var(--sub);font-weight:800;letter-spacing:.4px;margin:18px 2px 8px;text-transform:uppercase}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.pill{display:inline-block;font-size:10px;font-weight:800;padding:3px 8px;border-radius:999px;border:1px solid}
+.btn{font-family:inherit;border:1px solid var(--line);background:var(--card2);color:var(--txt);
+  border-radius:10px;padding:9px 12px;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;
+  align-items:center;gap:6px;justify-content:center}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:var(--acc);color:#0b1020;border-color:transparent}
+.btn.ghost{background:transparent}
+.btn.wide{width:100%}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+
+/* accordion */
+.acc{margin-bottom:10px}
+.acchd{display:flex;align-items:center;gap:11px;padding:14px;cursor:pointer;background:var(--card)}
+.acchd .ic{font-size:21px;width:28px;text-align:center;flex:none}
+.acchd .tt{flex:1;min-width:0}
+.acchd .tt b{display:block;font-size:14.5px}
+.acchd .tt span{display:block;font-size:11.5px;color:var(--sub);margin-top:3px;line-height:1.5}
+.acchd .cnt{font-size:11px;color:var(--dim);flex:none;font-weight:700}
+.accbody{display:none;border-top:1px solid var(--line);padding:8px}
+.acc.open .accbody{display:block}
+
+/* phrase card */
+.p{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:8px}
+.p .en{font-size:16px;line-height:1.5;font-weight:600;letter-spacing:.1px}
+.p .ja{font-size:13px;color:var(--sub);margin-top:6px;line-height:1.6}
+.p .nt{font-size:12px;color:var(--dim);margin-top:8px;line-height:1.65;padding-top:8px;border-top:1px dashed var(--line)}
+.p .acts{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.ib{border:1px solid var(--line);background:var(--card);color:var(--sub);border-radius:9px;
+  padding:7px 10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.ib:active{transform:scale(.95)}
+.ib.on{color:var(--warn);border-color:var(--warn)}
+.ib.rec{color:var(--acc);border-color:var(--acc)}
+.hideja .p .ja{filter:blur(5px);cursor:pointer}
+.hideja .p .ja.show{filter:none}
+
+/* score */
+.score{margin-top:10px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:12.5px}
+.score b{font-size:19px}
+.score .tr{margin-top:6px;line-height:1.7;color:var(--sub)}
+.w-ok{color:var(--ok)} .w-ng{color:var(--bad);text-decoration:line-through;opacity:.75}
+
+/* dialogue */
+.turn{display:flex;gap:9px;margin-bottom:10px}
+.who{flex:none;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:800;background:var(--card2);border:1px solid var(--line);color:var(--sub)}
+.turn.me .who{background:var(--acc);color:#0b1020;border-color:transparent}
+.bub{flex:1;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:11px 12px}
+.turn.me .bub{background:var(--card2);background:color-mix(in srgb,var(--acc) 13%, var(--card2))}
+.bub .en{font-size:14.5px;line-height:1.55}
+.bub .ja{font-size:12px;color:var(--sub);margin-top:5px;line-height:1.6}
+.bub .nt{font-size:11.5px;color:var(--dim);margin-top:7px;line-height:1.6}
+
+/* sim */
+.sim{padding:16px}
+.simq{font-size:18px;line-height:1.55;font-weight:600;min-height:60px}
+.simq.masked{filter:blur(7px)}
+.timer{font-family:ui-monospace,Menlo,monospace;font-size:30px;font-weight:800;color:var(--acc);text-align:center;margin:12px 0}
+.model{background:var(--card2);border:1px solid var(--line);border-radius:11px;padding:12px;margin-top:12px}
+.model .lb{font-size:10px;font-weight:800;color:var(--dim);letter-spacing:.5px;margin-bottom:6px}
+.model .en{font-size:14.5px;line-height:1.6}
+.keys{margin-top:9px;display:flex;flex-wrap:wrap;gap:5px}
+.keys span{font-size:11px;background:var(--card);background:color-mix(in srgb,var(--acc) 18%,transparent);
+  color:var(--acc);border:1px solid var(--line);border-color:color-mix(in srgb,var(--acc) 35%,transparent);padding:4px 8px;border-radius:7px}
+
+/* stats */
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px;text-align:center}
+.stat b{display:block;font-size:23px;font-weight:800;color:var(--acc)}
+.stat span{font-size:10.5px;color:var(--sub)}
+.setrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px;border-bottom:1px solid var(--line)}
+.setrow:last-child{border-bottom:0}
+.setrow label{font-size:13px;font-weight:600}
+.setrow small{display:block;font-size:11px;color:var(--dim);margin-top:2px;font-weight:400}
+select,input[type=range]{font-family:inherit;background:var(--card2);color:var(--txt);border:1px solid var(--line);
+  border-radius:9px;padding:7px 9px;font-size:13px;max-width:52%}
+.sw{width:48px;height:27px;border-radius:999px;background:var(--line);border:0;position:relative;cursor:pointer;flex:none}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:21px;height:21px;border-radius:50%;background:#fff;transition:.2s}
+.sw.on{background:var(--acc)} .sw.on::after{left:24px}
+.empty{padding:26px 14px;text-align:center;color:var(--dim);font-size:13px;line-height:1.7}
+.note{font-size:11.5px;color:var(--dim);line-height:1.7;padding:10px 4px}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="hd">
+      <div class="brand">
+        <h1>Ortho English</h1>
+        <small id="tagline"></small>
+      </div>
+      <div class="modesw">
+        <button data-mode="formal" id="mb-formal">🎓 学会</button>
+        <button data-mode="street" id="mb-street">🎤 日常</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap" id="main"></main>
+
+<nav>
+  <div class="navin">
+    <button data-tab="phrases"><i>📚</i>フレーズ</button>
+    <button data-tab="dialog"><i>💬</i>会話</button>
+    <button data-tab="drill"><i>🎯</i>実践</button>
+    <button data-tab="me"><i>📈</i>記録</button>
+  </div>
+</nav>
+
+<script src="data.js"></script>
+<script>
+/* ================= state ================= */
+const KEY = "oec_v1";
+const DEF = {mode:"formal", tab:"phrases", star:{}, srs:{}, log:{},
+             cfg:{accent:"en-GB", rate:0.92, voice:"", hideja:false}};
+const clone = o => JSON.parse(JSON.stringify(o));
+let S = load();
+function load(){
+  try{ const o = JSON.parse(localStorage.getItem(KEY)||"null");
+       return o ? Object.assign({}, DEF, o, {cfg:Object.assign({}, DEF.cfg, o.cfg||{})}) : clone(DEF);
+  }catch(e){ return clone(DEF); }
+}
+function save(){ localStorage.setItem(KEY, JSON.stringify(S)); }
+const M = () => MODES[S.mode];
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const today = () => new Date().toISOString().slice(0,10);
+
+/* ================= speech out ================= */
+let VOICES = [];
+function loadVoices(){ VOICES = (speechSynthesis.getVoices()||[]).filter(v=>/^en/i.test(v.lang)); }
+loadVoices();
+if (typeof speechSynthesis !== "undefined") speechSynthesis.onvoiceschanged = () => {
+  loadVoices();
+  if(S.tab === "me") render();   // 端末のボイス一覧が遅れて届くケース
+};
+
+function pickVoice(){
+  if(!VOICES.length) loadVoices();
+  if(S.cfg.voice){ const v = VOICES.find(v=>v.name===S.cfg.voice); if(v) return v; }
+  const pref = S.cfg.accent;
+  return VOICES.find(v=>v.lang.replace("_","-")===pref)
+      || VOICES.find(v=>v.lang.replace("_","-").startsWith(pref.slice(0,2)))
+      || VOICES[0] || null;
+}
+function speak(text, rate){
+  if(typeof speechSynthesis === "undefined") return alert("この端末は読み上げに対応していません。");
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text.replace(/[“”]/g,'"').replace(/—/g," - "));
+  u.lang = S.cfg.accent; u.rate = rate || S.cfg.rate; u.pitch = 1;
+  const v = pickVoice(); if(v) u.voice = v;
+  speechSynthesis.speak(u);
+}
+function speakSeq(list, i){
+  i = i||0; if(i>=list.length) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(list[i].replace(/[“”]/g,'"'));
+  u.lang = S.cfg.accent; u.rate = S.cfg.rate;
+  const v = pickVoice(); if(v) u.voice = v;
+  u.onend = () => setTimeout(()=>speakSeq(list, i+1), 420);
+  speechSynthesis.speak(u);
+}
+
+/* ================= speech in ================= */
+const SRc = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recog = null, recTarget = null;
+function listen(target, onDone){
+  if(!SRc){ alert("音声認識はこの端末/ブラウザでは使えません。\niPhoneはSafari、PCはChromeをお試しください。"); return; }
+  if(recog){ try{recog.stop()}catch(e){} }
+  recog = new SRc();
+  recog.lang = S.cfg.accent; recog.interimResults = false; recog.maxAlternatives = 1;
+  recTarget = target;
+  recog.onresult = e => onDone(e.results[0][0].transcript);
+  recog.onerror = e => onDone(null, e.error);
+  recog.onend = () => { recog = null; };
+  try{ recog.start(); }catch(e){ onDone(null, "start-failed"); }
+}
+const norm = s => s.toLowerCase().replace(/[“”"'’.,!?;:—–\-()]/g," ").replace(/\s+/g," ").trim();
+function compare(target, said){
+  const A = norm(target).split(" ").filter(Boolean);
+  const B = norm(said).split(" ").filter(Boolean);
+  const n=A.length, m=B.length, dp=Array.from({length:n+1},()=>new Array(m+1).fill(0));
+  for(let i=1;i<=n;i++) for(let j=1;j<=m;j++)
+    dp[i][j] = A[i-1]===B[j-1] ? dp[i-1][j-1]+1 : Math.max(dp[i-1][j], dp[i][j-1]);
+  // backtrack for per-word match flags
+  const hit = new Array(n).fill(false);
+  let i=n, j=m;
+  while(i>0 && j>0){
+    if(A[i-1]===B[j-1]){ hit[i-1]=true; i--; j--; }
+    else if(dp[i-1][j] >= dp[i][j-1]) i--; else j--;
+  }
+  const pct = n ? Math.round(dp[n][m]/n*100) : 0;
+  const html = A.map((w,k)=>`<span class="${hit[k]?"w-ok":"w-ng"}">${esc(w)}</span>`).join(" ");
+  return {pct, html};
+}
+
+/* ================= srs / log ================= */
+function itemKey(mode, sid, idx){ return mode+"/"+sid+"/"+idx; }
+function mark(k, good){
+  const r = S.srs[k] || {n:0, ok:0, box:0};
+  r.n++; if(good){ r.ok++; r.box = Math.min(5, r.box+1); } else { r.box = 0; }
+  r.last = today(); S.srs[k] = r;
+  S.log[today()] = (S.log[today()]||0) + 1;
+  save();
+}
+function streak(){
+  let n=0, d=new Date();
+  for(;;){ const k=d.toISOString().slice(0,10); if(S.log[k]){ n++; d.setDate(d.getDate()-1); } else break; }
+  return n;
+}
+function allItems(mode){
+  const out=[];
+  MODES[mode].sections.forEach(s=>s.items.forEach((it,i)=>out.push({it, sid:s.id, sTitle:s.title, idx:i, k:itemKey(mode,s.id,i)})));
+  return out;
+}
+
+/* ================= render ================= */
+const main = document.getElementById("main");
+function render(){
+  clearInterval(simT); simT = null;
+  try{ speechSynthesis.cancel(); }catch(e){}
+  document.body.classList.toggle("street", S.mode==="street");
+  document.body.classList.toggle("hideja", !!S.cfg.hideja);
+  document.getElementById("tagline").textContent = M().tagline;
+  document.querySelectorAll(".modesw button").forEach(b=>b.classList.toggle("on", b.dataset.mode===S.mode));
+  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on", b.dataset.tab===S.tab));
+  main.innerHTML = ({phrases:vPhrases, dialog:vDialog, drill:vDrill, me:vMe})[S.tab]();
+  window.scrollTo(0,0);
+  if(S.tab==="drill") initDrill();
+}
+
+/* ---- phrases ---- */
+function regBadge(reg){
+  if(!reg) return "";
+  const r = REG_LABEL[reg]; if(!r) return "";
+  return `<span class="pill" style="color:${r.c};border-color:${r.c}">${r.t}</span> `;
+}
+function pCard(it, k){
+  const st = S.star[k] ? "on" : "";
+  const box = (S.srs[k]||{}).box || 0;
+  return `<div class="p" data-k="${k}">
+    <div class="en">${regBadge(it.reg)}${esc(it.en)}</div>
+    <div class="ja">${esc(it.ja)}</div>
+    ${it.note?`<div class="nt">${esc(it.note)}</div>`:""}
+    <div class="acts">
+      <button class="ib" data-act="say" data-t="${esc(it.en)}">🔊 再生</button>
+      <button class="ib" data-act="slow" data-t="${esc(it.en)}">🐢 ゆっくり</button>
+      <button class="ib" data-act="mic" data-t="${esc(it.en)}">🎙 話す</button>
+      <button class="ib ${st}" data-act="star">${S.star[k]?"★":"☆"}</button>
+      ${box?`<span class="ib" style="pointer-events:none;color:var(--ok);border-color:var(--ok)">Lv${box}</span>`:""}
+    </div>
+    <div class="score hidden"></div>
+  </div>`;
+}
+function vPhrases(){
+  return M().sections.map(s=>{
+    const items = s.items.map((it,i)=>pCard(it, itemKey(S.mode, s.id, i))).join("");
+    return `<div class="acc card" data-sid="${s.id}">
+      <div class="acchd" data-act="toggle"><div class="ic">${s.icon}</div>
+        <div class="tt"><b>${esc(s.title)}</b><span>${esc(s.sub)}</span></div>
+        <div class="cnt">${s.items.length}</div></div>
+      <div class="accbody">${items}</div></div>`;
+  }).join("") + `<div class="note">💡 「話す」を押して声に出すと、認識結果と照合して一致率が出ます（iPhoneはSafari、PCはChrome推奨）。日本語を隠して意味だけ思い出す練習は「記録」タブで切り替えられます。</div>`;
+}
+
+/* ---- dialogues ---- */
+function vDialog(){
+  return M().dialogues.map(d=>{
+    const turns = d.turns.map(t=>{
+      const me = (t.who==="A"||t.who==="You");
+      return `<div class="turn ${me?"me":""}">
+        <div class="who">${t.who==="Q"?"Q":t.who==="A"?"You":esc(t.who)}</div>
+        <div class="bub">
+          <div class="en">${esc(t.en)}</div>
+          <div class="ja">${esc(t.ja)}</div>
+          ${t.note?`<div class="nt">${esc(t.note)}</div>`:""}
+          <div class="acts" style="margin-top:8px">
+            <button class="ib" data-act="say" data-t="${esc(t.en)}">🔊</button>
+            <button class="ib" data-act="mic" data-t="${esc(t.en)}">🎙</button>
+          </div>
+          <div class="score hidden"></div>
+        </div></div>`;
+    }).join("");
+    return `<div class="acc card">
+      <div class="acchd" data-act="toggle"><div class="ic">💬</div>
+        <div class="tt"><b>${esc(d.title)}</b><span>${esc(d.sub)}</span></div>
+        <div class="cnt">${d.turns.length}</div></div>
+      <div class="accbody">
+        <div class="row" style="margin-bottom:10px">
+          <button class="btn primary" data-act="playall" data-d="${d.id}">▶︎ 通しで再生</button>
+          <button class="btn ghost" data-act="stopall">■ 停止</button>
+        </div>${turns}</div></div>`;
+  }).join("");
+}
+
+/* ---- drill ---- */
+function vDrill(){
+  return `<div class="sec card sim" id="simbox">
+    <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div class="h2" style="margin:0">質疑応答シミュレーター</div>
+      <button class="ib" id="maskbtn">👁 質問文を隠す</button>
+    </div>
+    <div class="simq" id="simq">▶︎ を押すと、想定質問がランダムに再生されます。</div>
+    <div class="timer" id="timer">00.0</div>
+    <div class="row">
+      <button class="btn primary" id="simnext" style="flex:2">▶︎ 質問を出す</button>
+      <button class="btn" id="simreplay" style="flex:1">🔁 もう一度</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn wide" id="simmic">🎙 自分の答えを録る</button>
+    </div>
+    <div class="score hidden" id="simscore"></div>
+    <div id="simans"></div>
+  </div>
+
+  <div class="h2">シャドーイング・ドリル</div>
+  <div class="sec card sim">
+    <div class="note" style="padding:0 0 10px">まだ定着していないフレーズを優先して出します。聞く → 声に出す → 判定、の順で。</div>
+    <div id="shbox"></div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn primary" id="shnext" style="flex:1">次のフレーズ</button>
+    </div>
+  </div>`;
+}
+
+let simCur=null, simT=null, simT0=0, simMask=false, shCur=null;
+function initDrill(){
+  document.getElementById("maskbtn").onclick = e => {
+    simMask = !simMask;
+    document.getElementById("simq").classList.toggle("masked", simMask);
+    e.target.textContent = simMask ? "👁 質問文を出す" : "👁 質問文を隠す";
+  };
+  document.getElementById("simnext").onclick = simNext;
+  document.getElementById("simreplay").onclick = () => simCur && speak(simCur.q);
+  document.getElementById("simmic").onclick = simMic;
+  document.getElementById("shnext").onclick = shNext;
+  shNext();
+}
+function simNext(){
+  const bank = M().sim;
+  let n; do { n = bank[Math.floor(Math.random()*bank.length)]; } while(bank.length>1 && n===simCur);
+  simCur = n;
+  document.getElementById("simq").innerHTML = esc(n.q) + `<div style="font-size:12px;color:var(--sub);margin-top:6px">${esc(n.qja)}</div>`;
+  document.getElementById("simq").classList.toggle("masked", simMask);
+  document.getElementById("simans").innerHTML = "";
+  document.getElementById("simscore").classList.add("hidden");
+  speak(n.q);
+  clearInterval(simT); simT0 = Date.now();
+  simT = setInterval(()=>{
+    const el = document.getElementById("timer");
+    if(!el){ clearInterval(simT); simT=null; return; }   // 別タブに移ったら止める
+    const s = (Date.now()-simT0)/1000;
+    el.textContent = s.toFixed(1).padStart(4,"0");
+    el.style.color = s>20 ? "var(--bad)" : s>10 ? "var(--warn)" : "var(--acc)";
+  }, 100);
+  document.getElementById("simnext").textContent = "▶︎ 次の質問";
+  setTimeout(showAnsBtn, 0);
+}
+function showAnsBtn(){
+  document.getElementById("simans").innerHTML =
+    `<button class="btn wide ghost" id="simshow" style="margin-top:10px">💡 模範解答を見る</button>`;
+  document.getElementById("simshow").onclick = () => {
+    clearInterval(simT);
+    document.getElementById("simans").innerHTML = `
+      <div class="model"><div class="lb">MODEL ANSWER</div>
+        <div class="en">${esc(simCur.a)}</div>
+        <div class="keys">${simCur.keys.map(k=>`<span>${esc(k)}</span>`).join("")}</div>
+        <div class="row" style="margin-top:10px">
+          <button class="ib" data-act="say" data-t="${esc(simCur.a)}">🔊 再生</button>
+          <button class="ib" data-act="slow" data-t="${esc(simCur.a)}">🐢 ゆっくり</button>
+          <button class="ib" data-act="mic" data-t="${esc(simCur.a)}">🎙 なぞる</button>
+        </div>
+        <div class="score hidden"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn" style="flex:1" data-rate="ok">◎ 言えた</button>
+        <button class="btn" style="flex:1" data-rate="mid">△ 微妙</button>
+        <button class="btn" style="flex:1" data-rate="ng">✕ 無理</button>
+      </div>`;
+    document.querySelectorAll("[data-rate]").forEach(b=>b.onclick = () => {
+      mark("sim/"+S.mode+"/"+M().sim.indexOf(simCur), b.dataset.rate==="ok");
+      simNext();
+    });
+  };
+}
+function simMic(){
+  if(!simCur) return simNext();
+  const box = document.getElementById("simscore");
+  box.classList.remove("hidden");
+  box.innerHTML = "🎙 聞いています… 答えを英語で話してください。";
+  listen(simCur.a, (said, err) => {
+    if(err){ box.innerHTML = "認識できませんでした（"+esc(err)+"）。マイク許可を確認してください。"; return; }
+    const r = compare(simCur.a, said);
+    box.innerHTML = `<b>模範解答との一致 ${r.pct}%</b>
+      <div class="tr">あなた: ${esc(said)}</div>
+      <div class="tr">${r.html}</div>
+      <div class="note" style="padding:6px 0 0">※ 一致率は目安です。模範解答と違う言い方でも、質問に答えられていればOK。</div>`;
+  });
+}
+function shNext(){
+  const all = allItems(S.mode);
+  all.sort((a,b)=>{
+    const A=(S.srs[a.k]||{box:-1}).box, B=(S.srs[b.k]||{box:-1}).box;
+    if(A!==B) return A-B;
+    return Math.random()-0.5;
+  });
+  shCur = all[Math.floor(Math.random()*Math.min(12, all.length))];
+  document.getElementById("shbox").innerHTML =
+    `<div style="font-size:11px;color:var(--dim);margin-bottom:6px">${esc(shCur.sTitle)}</div>` +
+    pCard(shCur.it, shCur.k) +
+    `<div class="row"><button class="btn" style="flex:1" data-shr="ok">◎ 言えた</button>
+      <button class="btn" style="flex:1" data-shr="ng">✕ まだ</button></div>`;
+  speak(shCur.it.en);
+  document.querySelectorAll("[data-shr]").forEach(b=>b.onclick = () => { mark(shCur.k, b.dataset.shr==="ok"); shNext(); });
+}
+
+/* ---- me ---- */
+function vMe(){
+  const doneToday = S.log[today()]||0;
+  const mastered = Object.values(S.srs).filter(r=>r.box>=3).length;
+  const total = Object.keys(S.srs).length;
+  const stars = [];
+  Object.keys(MODES).forEach(m => allItems(m).forEach(o => { if(S.star[o.k]) stars.push({...o, m}); }));
+  const starHtml = stars.length
+    ? stars.map(o=>`<div style="margin-bottom:8px"><div style="font-size:11px;color:var(--dim);margin-bottom:4px">${MODES[o.m].icon} ${esc(o.sTitle)}</div>${pCard(o.it,o.k)}</div>`).join("")
+    : `<div class="empty">まだ★がありません。<br>フレーズカードの ☆ を押すとここに集まります。</div>`;
+  const voiceOpts = VOICES.map(v=>`<option value="${esc(v.name)}" ${S.cfg.voice===v.name?"selected":""}>${esc(v.name)} (${esc(v.lang)})</option>`).join("");
+  return `
+  <div class="h2">今日の記録</div>
+  <div class="grid3">
+    <div class="stat"><b>${doneToday}</b><span>今日の練習</span></div>
+    <div class="stat"><b>${streak()}</b><span>連続日数</span></div>
+    <div class="stat"><b>${mastered}<small style="font-size:12px;color:var(--dim)">/${total||0}</small></b><span>定着(Lv3+)</span></div>
+  </div>
+
+  <div class="h2">設定</div>
+  <div class="card">
+    <div class="setrow"><label>アクセント<small>イギリス生活の耳に戻すなら en-GB</small></label>
+      <select id="cfgAccent">
+        <option value="en-GB" ${S.cfg.accent==="en-GB"?"selected":""}>en-GB イギリス</option>
+        <option value="en-US" ${S.cfg.accent==="en-US"?"selected":""}>en-US アメリカ</option>
+        <option value="en-AU" ${S.cfg.accent==="en-AU"?"selected":""}>en-AU オーストラリア</option>
+      </select></div>
+    <div class="setrow"><label>読み上げ速度<small id="rateLabel">${S.cfg.rate.toFixed(2)}x</small></label>
+      <input type="range" id="cfgRate" min="0.6" max="1.3" step="0.02" value="${S.cfg.rate}"></div>
+    <div class="setrow"><label>音声<small>端末にある英語ボイス</small></label>
+      <select id="cfgVoice"><option value="">自動</option>${voiceOpts}</select></div>
+    <div class="setrow"><label>日本語を隠す<small>英語から意味を思い出す練習</small></label>
+      <button class="sw ${S.cfg.hideja?"on":""}" id="cfgHide"></button></div>
+    <div class="setrow"><label>データを消す<small>★と学習記録がすべて消えます</small></label>
+      <button class="btn ghost" id="reset" style="color:var(--bad);border-color:var(--bad)">リセット</button></div>
+  </div>
+
+  <div class="h2">★ お気に入り（${stars.length}）</div>
+  <div>${starHtml}</div>
+
+  <div class="note" style="margin-top:18px">
+    <b>使い方の目安（TOEIC 796・ブランクありの人向け）</b><br>
+    ① 学会2週間前 → 「聞き取れない・確認する」「限界を認める」を毎日音読。この2つだけで質疑の事故は激減します。<br>
+    ② 1週間前 → 実践タブのシミュレーターを1日10問。10秒以内に口が動くかだけを見る。<br>
+    ③ 前日 → 「冒頭・締め」と自分の発表に関係するセクションを通し再生。<br>
+    ④ 日常タブは移動中に流し聞き。パブと廊下の会話は、実は学会本体より効きます。
+  </div>
+  <div class="note" style="opacity:.6">データはこの端末のブラウザ内にのみ保存されます。ホーム画面に追加するとアプリのように使えます。</div>`;
+}
+
+/* ================= events ================= */
+document.querySelectorAll(".modesw button").forEach(b => b.onclick = () => { S.mode=b.dataset.mode; save(); render(); });
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => { S.tab=b.dataset.tab; save(); render(); });
+
+main.addEventListener("click", e => {
+  const t = e.target.closest("[data-act]");
+  if(t){
+    const act = t.dataset.act;
+    if(act==="toggle"){ t.parentElement.classList.toggle("open"); return; }
+    if(act==="say"){ speak(t.dataset.t); return; }
+    if(act==="slow"){ speak(t.dataset.t, 0.68); return; }
+    if(act==="stopall"){ speechSynthesis.cancel(); return; }
+    if(act==="playall"){
+      const d = M().dialogues.find(x=>x.id===t.dataset.d);
+      if(d) speakSeq(d.turns.map(x=>x.en)); return;
+    }
+    if(act==="star"){
+      const k = t.closest(".p").dataset.k;
+      S.star[k] = !S.star[k]; save();
+      t.textContent = S.star[k] ? "★" : "☆"; t.classList.toggle("on", !!S.star[k]);
+      return;
+    }
+    if(act==="mic"){
+      const host = t.closest(".p") || t.closest(".model") || t.closest(".bub");
+      const box = host.querySelector(".score");
+      box.classList.remove("hidden");
+      box.innerHTML = "🎙 聞いています… 英語で話してください。";
+      t.classList.add("rec");
+      listen(t.dataset.t, (said, err) => {
+        t.classList.remove("rec");
+        if(err){ box.innerHTML = "認識できませんでした（"+esc(err)+"）。ブラウザのマイク許可をご確認ください。"; return; }
+        const r = compare(t.dataset.t, said);
+        box.innerHTML = `<b style="color:${r.pct>=80?"var(--ok)":r.pct>=55?"var(--warn)":"var(--bad)"}">一致 ${r.pct}%</b>
+          <div class="tr">あなた: ${esc(said)}</div><div class="tr">${r.html}</div>`;
+        const k = host.dataset.k || (host.closest(".p")||{dataset:{}}).dataset.k;
+        if(k) mark(k, r.pct>=75);
+      });
+      return;
+    }
+  }
+  const ja = e.target.closest(".ja");
+  if(ja && S.cfg.hideja) ja.classList.toggle("show");
+});
+
+main.addEventListener("input", e => {
+  if(e.target.id==="cfgRate"){ S.cfg.rate = parseFloat(e.target.value); save();
+    document.getElementById("rateLabel").textContent = S.cfg.rate.toFixed(2)+"x"; }
+});
+main.addEventListener("change", e => {
+  if(e.target.id==="cfgAccent"){ S.cfg.accent = e.target.value; S.cfg.voice=""; save(); render(); }
+  if(e.target.id==="cfgVoice"){ S.cfg.voice = e.target.value; save(); }
+});
+main.addEventListener("click", e => {
+  if(e.target.id==="cfgHide"){ S.cfg.hideja = !S.cfg.hideja; save(); render(); }
+  if(e.target.id==="reset"){
+    if(confirm("★と学習記録をすべて消します。よろしいですか？")){ S = clone(DEF); save(); render(); }
+  }
+});
+window.addEventListener("beforeunload", () => { try{speechSynthesis.cancel()}catch(e){} });
+
+render();
+</script>
+</body>
+</html>
