@@ -44,8 +44,8 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:60;
   background:var(--bg);
   background:color-mix(in srgb, var(--bg) 92%, transparent);backdrop-filter:blur(14px);
   border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
-.navin{max-width:720px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr)}
-nav button{background:none;border:0;color:var(--dim);padding:9px 4px 10px;font-size:10px;font-weight:700;
+.navin{max-width:720px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
+nav button{background:none;border:0;color:var(--dim);padding:9px 2px 10px;font-size:9.5px;font-weight:700;
   display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;font-family:inherit}
 nav button i{font-style:normal;font-size:19px;line-height:1}
 nav button.on{color:var(--acc)}
@@ -118,6 +118,21 @@ nav button.on{color:var(--acc)}
 .keys span{font-size:11px;background:var(--card);background:color-mix(in srgb,var(--acc) 18%,transparent);
   color:var(--acc);border:1px solid var(--line);border-color:color-mix(in srgb,var(--acc) 35%,transparent);padding:4px 8px;border-radius:7px}
 
+/* gemini live scripts */
+.g{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:8px}
+.g .nm{font-size:14.5px;font-weight:700;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.g .nt{font-size:12px;color:var(--dim);margin-top:7px;line-height:1.65}
+.g .acts{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.pw{display:none;margin-top:10px}
+.pw.open{display:block}
+pre.prompt{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:11px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;line-height:1.65;color:var(--txt);
+  white-space:pre-wrap;word-break:break-word;overflow-x:auto;-webkit-user-select:text;user-select:text}
+.howto{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.howto b{font-size:13.5px;display:block;margin-bottom:8px}
+.howto ol{margin:0 0 0 18px;font-size:12.5px;color:var(--sub);line-height:1.85}
+.howto ol li{margin-bottom:3px}
+
 /* stats */
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px;text-align:center}
@@ -161,6 +176,7 @@ select,input[type=range]{font-family:inherit;background:var(--card2);color:var(-
     <button data-tab="phrases"><i>📚</i>フレーズ</button>
     <button data-tab="dialog"><i>💬</i>会話</button>
     <button data-tab="drill"><i>🎯</i>実践</button>
+    <button data-tab="live"><i>🎙</i>Live</button>
     <button data-tab="me"><i>📈</i>記録</button>
   </div>
 </nav>
@@ -251,6 +267,27 @@ function compare(target, said){
   return {pct, html};
 }
 
+/* ================= clipboard ================= */
+function copyText(text, btn){
+  const label = btn.textContent;
+  const ok = () => { btn.textContent = "✓ コピー完了"; setTimeout(()=>{ btn.textContent = label; }, 1600); };
+  const legacy = () => {
+    const ta = document.createElement("textarea");
+    ta.value = text; ta.setAttribute("readonly","");
+    ta.style.cssText = "position:fixed;top:0;left:0;opacity:0";
+    document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, text.length);
+    let done = false;
+    try{ done = document.execCommand("copy"); }catch(e){ done = false; }
+    document.body.removeChild(ta);
+    if(done) ok();
+    else { btn.closest(".g").querySelector(".pw").classList.add("open");
+           alert("自動コピーできませんでした。表示されたスクリプトを長押しして選択・コピーしてください。"); }
+  };
+  if(navigator.clipboard && window.isSecureContext){
+    navigator.clipboard.writeText(text).then(ok).catch(legacy);
+  } else legacy();
+}
+
 /* ================= srs / log ================= */
 function itemKey(mode, sid, idx){ return mode+"/"+sid+"/"+idx; }
 function mark(k, good){
@@ -281,7 +318,7 @@ function render(){
   document.getElementById("tagline").textContent = M().tagline;
   document.querySelectorAll(".modesw button").forEach(b=>b.classList.toggle("on", b.dataset.mode===S.mode));
   document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on", b.dataset.tab===S.tab));
-  main.innerHTML = ({phrases:vPhrases, dialog:vDialog, drill:vDrill, me:vMe})[S.tab]();
+  main.innerHTML = ({phrases:vPhrases, dialog:vDialog, drill:vDrill, live:vLive, me:vMe})[S.tab]();
   window.scrollTo(0,0);
   if(S.tab==="drill") initDrill();
 }
@@ -471,6 +508,38 @@ function shNext(){
   document.querySelectorAll("[data-shr]").forEach(b=>b.onclick = () => { mark(shCur.k, b.dataset.shr==="ok"); shNext(); });
 }
 
+/* ---- gemini live scripts ---- */
+function vLive(){
+  const secs = GEMINI.map((s,si)=>{
+    const items = s.items.map((it,ii)=>`<div class="g">
+      <div class="nm">${esc(it.name)}<span class="pill" style="color:var(--acc2);border-color:var(--acc2)">${esc(it.lv)}</span></div>
+      <div class="nt">${esc(it.note)}</div>
+      <div class="acts">
+        <button class="ib" data-act="gcopy" data-g="${si}:${ii}">📋 コピー</button>
+        <button class="ib" data-act="gshow" data-g="${si}:${ii}">👁 中身を見る</button>
+      </div>
+      <div class="pw"><pre class="prompt">${esc(it.prompt)}</pre></div>
+    </div>`).join("");
+    return `<div class="acc card">
+      <div class="acchd" data-act="toggle"><div class="ic">${s.icon}</div>
+        <div class="tt"><b>${esc(s.title)}</b><span>${esc(s.sub)}</span></div>
+        <div class="cnt">${s.items.length}</div></div>
+      <div class="accbody">${items}</div></div>`;
+  }).join("");
+
+  return `<div class="howto">
+    <b>🎙 Gemini Live での使い方</b>
+    <ol>
+      <li>Gemini アプリを開き、音声モード（Live）を起動する</li>
+      <li>下のスクリプトを「コピー」して、最初に貼り付ける／読み上げる</li>
+      <li>あとは英語で話すだけ。日本語のフィードバックが挟まる設定にしてあります</li>
+      <li><b>1回10分で切る。</b>20分やると集中が落ちて雑な英語が固定されます</li>
+      <li>学会2週間前からは、質疑を週3回・パブを週2回が目安</li>
+    </ol>
+  </div>${secs}
+  <div class="note">💡 スクリプトは Gemini 以外の音声AIでもそのまま使えます。うまく厳しくならないときは「Be harsher. That question was too easy.」と口頭で追加してください。</div>`;
+}
+
 /* ---- me ---- */
 function vMe(){
   const doneToday = S.log[today()]||0;
@@ -533,6 +602,17 @@ main.addEventListener("click", e => {
     if(act==="say"){ speak(t.dataset.t); return; }
     if(act==="slow"){ speak(t.dataset.t, 0.68); return; }
     if(act==="stopall"){ speechSynthesis.cancel(); return; }
+    if(act==="gshow"){
+      const box = t.closest(".g").querySelector(".pw");
+      box.classList.toggle("open");
+      t.textContent = box.classList.contains("open") ? "👁 隠す" : "👁 中身を見る";
+      return;
+    }
+    if(act==="gcopy"){
+      const [si,ii] = t.dataset.g.split(":").map(Number);
+      copyText(GEMINI[si].items[ii].prompt, t);
+      return;
+    }
     if(act==="playall"){
       const d = M().dialogues.find(x=>x.id===t.dataset.d);
       if(d) speakSeq(d.turns.map(x=>x.en)); return;
