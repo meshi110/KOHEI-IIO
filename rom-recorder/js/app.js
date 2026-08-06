@@ -133,19 +133,22 @@
 
   function submitSave(ev) {
     ev.preventDefault();
-    const angle = Number($("saveAngle").value);
-    if (!isFinite(angle)) { toast("角度を入力してください"); return; }
+    const angleStr = $("saveAngle").value.trim();
+    const angle = Number(angleStr);
+    const hasAngle = angleStr !== "" && isFinite(angle);
+    // 新規は角度必須。編集時はテキスト値レコード(結帯レベル等)のため角度なしを許容
+    if (!hasAngle && !editingId) { toast("角度を入力してください"); return; }
     const rec = {
       patient: $("savePatient").value.trim(),
       joint: $("saveJoint").value.trim(),
       motion: $("saveMotion").value.trim(),
       side: $("saveSide").value,
-      angle,
       method: $("saveMethod").value.trim(),
       memo: $("saveMemo").value.trim(),
     };
+    if (hasAngle) rec.angle = angle;
     if (editingId) {
-      Store.updateRecord(editingId, rec);
+      if (!Store.updateRecord(editingId, rec)) { toast("角度を入力してください"); return; }
       toast("記録を更新しました");
     } else {
       Store.addRecord(rec);
@@ -218,7 +221,7 @@
         r.patient || "-",
         (r.joint + " " + r.motion).trim() || "-",
         r.side || "-",
-        r.angle + "°",
+        (r.angle !== null && r.angle !== undefined) ? r.angle + "°" : (r.valueText || "-"),
         r.method || "-",
         r.memo || "",
       ];
@@ -336,6 +339,7 @@
     const key = sel.value;
     const data = subset
       .filter((r) => seriesKey(r) === key)
+      .filter((r) => r.angle !== null && r.angle !== undefined)
       .map((r) => ({ x: Date.parse(r.ts), y: r.angle }))
       .sort((a, b) => a.x - b.x);
     if (!recChart) {

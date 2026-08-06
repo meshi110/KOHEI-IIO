@@ -582,3 +582,53 @@ dialog input[readonly] { opacity: 0.7; }
   padding: 24px 16px calc(24px + env(safe-area-inset-bottom, 0));
   line-height: 1.8;
 }
+
+/* ---- 肩検査(動画自動解析) ---- */
+
+.controls-sub { display: contents; }
+.controls-sub.hide { display: none; }
+
+.guide {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin: 10px 0;
+  font-size: 14px;
+  line-height: 1.75;
+}
+.guide ol { margin: 6px 0 0 22px; }
+
+.sh-table td { white-space: nowrap; }
+
+.sh-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.sh-cell input { width: 18px; height: 18px; accent-color: var(--accent); }
+.sh-cell span { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.timelink {
+  appearance: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface2);
+  color: var(--ink-muted);
+  font-size: 12px;
+  padding: 3px 10px;
+  min-height: 28px;
+  cursor: pointer;
+}
+
+.sh-none { color: var(--ink-muted); }
+
+.ctl input:not([type="range"]):not([type="checkbox"]) {
+  min-height: 40px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 15px;
+}

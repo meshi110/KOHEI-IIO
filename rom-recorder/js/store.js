@@ -45,8 +45,11 @@
 
   function sanitizeRecord(r) {
     if (!r || typeof r !== "object") return null;
-    const angle = Number(r.angle);
-    if (!isFinite(angle)) return null;
+    // Number(null)===0 のため、null/undefined/空文字は明示的に「角度なし」として扱う
+    const angle = (r.angle === null || r.angle === undefined || r.angle === "") ? NaN : Number(r.angle);
+    const valueText = String(r.valueText ?? "").trim();
+    // 角度(数値)か、レベル等のテキスト値(例: 結帯動作の到達レベル Th7)のどちらかが必須
+    if (!isFinite(angle) && !valueText) return null;
     return {
       id: typeof r.id === "string" && r.id ? r.id : genId(),
       ts: typeof r.ts === "string" && !isNaN(Date.parse(r.ts)) ? r.ts : new Date().toISOString(),
@@ -54,7 +57,8 @@
       joint: String(r.joint ?? "").trim(),
       motion: String(r.motion ?? "").trim(),
       side: String(r.side ?? "").trim(),
-      angle: Math.round(angle * 10) / 10,
+      angle: isFinite(angle) ? Math.round(angle * 10) / 10 : null,
+      valueText,
       method: String(r.method ?? "").trim(),
       memo: String(r.memo ?? "").trim(),
     };
@@ -222,12 +226,13 @@
     return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   }
 
-  const CSV_HEADERS = ["日付", "時刻", "患者ID", "関節", "運動", "側", "角度(度)", "方法", "メモ"];
+  const CSV_HEADERS = ["日付", "時刻", "患者ID", "関節", "運動", "側", "角度(度)", "値(レベル等)", "方法", "メモ"];
 
   // Excelで文字化けしないよう BOM 付き UTF-8 / CRLF
   function recordsToCSV(records) {
     const rows = records.map((r) =>
-      [fmtDate(r.ts), fmtTime(r.ts), r.patient, r.joint, r.motion, r.side, r.angle, r.method, r.memo]
+      [fmtDate(r.ts), fmtTime(r.ts), r.patient, r.joint, r.motion, r.side,
+        (r.angle === null || r.angle === undefined) ? "" : r.angle, r.valueText || "", r.method, r.memo]
         .map(csvEscape).join(",")
     );
     return "﻿" + CSV_HEADERS.join(",") + "\r\n" + (rows.length ? rows.join("\r\n") + "\r\n" : "");

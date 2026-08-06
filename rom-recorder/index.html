@@ -110,15 +110,23 @@
         <label class="btn file-btn">動画を選択
           <input type="file" id="vidFile" accept="video/*" hidden>
         </label>
-        <label class="ctl">関節・運動
-          <select id="vidJoint"></select>
-        </label>
-        <div class="ctl">側
+        <div class="ctl">解析モード
           <div class="seg">
-            <button type="button" id="vidSideL">左</button>
-            <button type="button" id="vidSideR" class="active">右</button>
+            <button type="button" id="vidModeSingle" class="active">単一関節</button>
+            <button type="button" id="vidModeShoulder">肩検査(自動)</button>
           </div>
         </div>
+        <span id="vidSingleCtls" class="controls-sub">
+          <label class="ctl">関節・運動
+            <select id="vidJoint"></select>
+          </label>
+          <div class="ctl">側
+            <div class="seg">
+              <button type="button" id="vidSideL">左</button>
+              <button type="button" id="vidSideR" class="active">右</button>
+            </div>
+          </div>
+        </span>
         <label class="ctl">解析速度
           <select id="vidRate">
             <option value="0.25">0.25×(高密度)</option>
@@ -143,6 +151,48 @@
       <p class="stats" id="vidStats"></p>
       <div id="vidResult" class="chip-row"></div>
       <p class="note">グラフをタップするとその時点へ動画がシークします。歩行・立ち上がりなどの動作解析にどうぞ。</p>
+
+      <div id="shoulderGuide" class="guide" hidden>
+        <strong>肩検査の撮影手順(ご家族が正面から・全身・明るい場所で)</strong>
+        <ol>
+          <li>気をつけ姿勢で2秒静止</li>
+          <li>両腕を<strong>前から</strong>真上へ挙上 → ゆっくり戻す(挙上)</li>
+          <li>両腕を<strong>横から</strong>真上へ → 戻す(外転)</li>
+          <li>両腕を後方へ引く(伸展)</li>
+          <li>両肘を90°に曲げ脇を締めたまま、前腕を外へ開く(1st外旋)</li>
+          <li>両腕を横に90°上げ肘90°で、前腕を上へ/下へ倒す(2nd外旋・内旋)</li>
+          <li>両腕を前に90°上げ肘90°で、前腕を外へ/内へ倒す(3rd外旋・内旋)</li>
+        </ol>
+        <p class="note">各動作は2回ゆっくり。両腕同時でかまいません。解析中に部位を選ぶ操作は不要で、
+          すべての項目が動画から自動抽出されます。1st内旋(結帯・母指がどの脊椎レベルに届くか)は
+          カメラでは測定できないため、結果欄で選択して一緒に記録します。</p>
+      </div>
+
+      <section id="shoulderResults" hidden>
+        <h2 class="section-title">肩検査 結果(両側自動抽出)</h2>
+        <p class="note">単眼カメラの3D推定による<strong>目安</strong>です。時刻ボタンをタップすると動画の該当場面へ移動して確認できます。
+          採用する項目だけチェックを残して記録してください。3rd回旋の0°基準は「前腕垂直下向き」(暫定・要確認)です。</p>
+        <div class="table-wrap">
+          <table class="sh-table">
+            <thead><tr><th>項目</th><th>右</th><th>左</th></tr></thead>
+            <tbody id="shoulderTbody"></tbody>
+          </table>
+        </div>
+        <div class="controls">
+          <label class="ctl">1st内旋(結帯) 右
+            <select id="shThR"></select>
+          </label>
+          <label class="ctl">1st内旋(結帯) 左
+            <select id="shThL"></select>
+          </label>
+          <label class="ctl">患者ID(匿名化推奨)
+            <input id="shPatient" list="patientList" autocomplete="off" placeholder="例: A-012">
+          </label>
+        </div>
+        <div class="btn-row">
+          <button type="button" id="shSaveAll" class="btn btn-go">チェックした項目をまとめて記録</button>
+        </div>
+      </section>
     </section>
 
     <!-- ================= 写真計測 ================= -->
@@ -373,7 +423,7 @@
           </select>
         </label>
         <label>角度(°)
-          <input id="saveAngle" type="number" step="0.1" inputmode="decimal" required>
+          <input id="saveAngle" type="number" step="0.1" inputmode="decimal">
         </label>
       </div>
       <label>方法
@@ -454,6 +504,8 @@
   <script src="js/mmt-defs.js" defer></script>
   <script src="js/store.js" defer></script>
   <script src="js/chart.js" defer></script>
+  <script src="js/shoulder-exam.js" defer></script>
+  <script src="js/shoulder-ui.js" defer></script>
   <script src="js/photo.js" defer></script>
   <script src="js/ai.js" defer></script>
   <script src="js/voice-parse.js" defer></script>

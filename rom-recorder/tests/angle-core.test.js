@@ -261,4 +261,25 @@ ok("deleteMMT", () => {
   assert.strictEqual(Store.deleteMMT("no-such-id"), false);
 });
 
+console.log("store(テキスト値レコード):");
+
+ok("valueText記録: 角度なしでも保存でき、再読み込みでも0°に化けない", () => {
+  const rec = Store.addRecord({ patient: "A-01", joint: "肩", motion: "1st内旋(結帯)", side: "右", valueText: "Th7", method: "目視" });
+  assert.ok(rec && rec.id);
+  assert.strictEqual(rec.angle, null);
+  assert.strictEqual(rec.valueText, "Th7");
+  const reloaded = Store.loadRecords().find((r) => r.id === rec.id);
+  assert.strictEqual(reloaded.angle, null, "再読み込み後も角度はnull(Number(null)=0対策)");
+  assert.strictEqual(reloaded.valueText, "Th7");
+  const csv = Store.recordsToCSV([rec]);
+  assert.ok(csv.includes("値(レベル等)"), "CSVヘッダに値列");
+  assert.ok(csv.includes(",Th7,"), "CSVにレベル値");
+  assert.ok(!csv.includes("null"), "角度欄はnullではなく空欄");
+  Store.deleteRecord(rec.id);
+});
+
+ok("角度もvalueTextも無い記録は保存されない", () => {
+  assert.strictEqual(Store.addRecord({ patient: "A-01", joint: "肩", motion: "屈曲" }), null);
+});
+
 console.log("\n" + passed + " tests passed");

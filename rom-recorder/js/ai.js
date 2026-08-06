@@ -622,6 +622,34 @@
       let vfcId = 0, rafId = 0;
       let lastT = -1;
 
+      // ---- 解析モード: 単一関節 / 肩検査(一連動作から両側の各指標を自動抽出) ----
+      const modeSingleBtn = document.getElementById("vidModeSingle");
+      const modeShoulderBtn = document.getElementById("vidModeShoulder");
+      const singleCtls = document.getElementById("vidSingleCtls");
+      const guideEl = document.getElementById("shoulderGuide");
+      const shResultsEl = document.getElementById("shoulderResults");
+      let mode = "single";
+      let shSession = null;
+
+      function setMode(m) {
+        mode = m;
+        modeSingleBtn.classList.toggle("active", m === "single");
+        modeShoulderBtn.classList.toggle("active", m === "shoulder");
+        singleCtls.classList.toggle("hide", m === "shoulder");
+        guideEl.hidden = m !== "shoulder";
+        chartCanvas.style.display = m === "shoulder" ? "none" : "";
+        csvBtn.style.display = m === "shoulder" ? "none" : "";
+        if (m === "single") shResultsEl.hidden = true;
+      }
+      modeSingleBtn.addEventListener("click", () => setMode("single"));
+      modeShoulderBtn.addEventListener("click", () => setMode("shoulder"));
+
+      if (global.ShoulderUI) {
+        global.ShoulderUI.init(app, {
+          seek(t) { if (!analyzing && video.src) video.currentTime = t; },
+        });
+      }
+
       const chart = global.createLineChart(chartCanvas, {
         xType: "seconds",
         emptyText: "動画を解析すると角度の推移が表示されます",
@@ -653,6 +681,8 @@
         statsEl.textContent = "";
         resultEl.innerHTML = "";
         csvBtn.disabled = true;
+        shResultsEl.hidden = true;
+        shSession = null;
         status("動画を読み込みました。「解析開始」で先頭から解析します");
       });
 
@@ -666,6 +696,8 @@
         statsEl.textContent = "";
         resultEl.innerHTML = "";
         csvBtn.disabled = true;
+        shResultsEl.hidden = true;
+        shSession = (mode === "shoulder" && global.ShoulderExam) ? global.ShoulderExam.createSession() : null;
         try {
           status("AIモデルを読み込み中…");
           // タイムスタンプ管理をリセットするため毎回作り直す
@@ -709,12 +741,19 @@
             console.error(e);
           }
           const { ctx, w, h } = fitCanvasTo(wrap, canvas);
-          const p = preset();
+          const p = mode === "shoulder" ? null : preset();
           drawOverlay(ctx, result, p, side, w, h, conns);
-          const r = result ? computeFromResult(result, p, side, use3DChk.checked, video.videoWidth, video.videoHeight) : null;
-          if (r && r.minVis >= 0.5) series.push({ t, value: Math.round(r.value * 10) / 10 });
+          if (mode === "shoulder") {
+            if (shSession && result && result.worldLandmarks && result.worldLandmarks[0]) {
+              shSession.add(result.worldLandmarks[0], result.landmarks && result.landmarks[0], t);
+            }
+          } else {
+            const r = result ? computeFromResult(result, p, side, use3DChk.checked, video.videoWidth, video.videoHeight) : null;
+            if (r && r.minVis >= 0.5) series.push({ t, value: Math.round(r.value * 10) / 10 });
+          }
           if (video.duration) {
-            status("解析中… " + Math.min(100, Math.round((t / video.duration) * 100)) + "%  (" + series.length + "点)");
+            const points = mode === "shoulder" ? (shSession ? shSession.frames : 0) : series.length;
+            status("解析中… " + Math.min(100, Math.round((t / video.duration) * 100)) + "%  (" + points + "点)");
           }
         }
         if (video.ended) { finishAnalyze(); return; }
@@ -732,6 +771,17 @@
 
       function finishAnalyze() {
         stopAnalyze();
+        if (mode === "shoulder") {
+          if (!shSession || !shSession.frames) {
+            status("解析終了: 有効なフレームがありませんでした(正面から全身が映っているか確認してください)");
+            return;
+          }
+          const res = shSession.finalize();
+          status("解析終了: " + res.frames + "フレーム");
+          statsEl.textContent = "結果を下に表示しました。時刻ボタンで動画の該当場面を確認できます";
+          if (global.ShoulderUI) global.ShoulderUI.render(res);
+          return;
+        }
         if (!series.length) {
           status("解析終了: 有効なフレームがありませんでした(人物全身が映っているか確認してください)");
           chart.setData([]);
