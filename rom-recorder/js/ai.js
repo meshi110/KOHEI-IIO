@@ -216,6 +216,11 @@
       const video = document.getElementById("liveVideo");
       const canvas = document.getElementById("liveOverlay");
       const wrap = document.getElementById("liveWrap");
+      const zoomBox = document.getElementById("liveZoomBox");
+      const viewZoomVal = document.getElementById("liveViewZoomVal");
+      const optWrap = document.getElementById("liveOptZoomWrap");
+      const optSlider = document.getElementById("liveOptZoom");
+      const optVal = document.getElementById("liveOptZoomVal");
       const jointSel = document.getElementById("liveJoint");
       const sideL = document.getElementById("liveSideL");
       const sideR = document.getElementById("liveSideR");
@@ -274,12 +279,148 @@
         app.saveSettings({ mirror: mirrorChk.checked });
       });
       use3DChk.addEventListener("change", () => app.saveSettings({ use3D: use3DChk.checked }));
+
+      // カメラ選択: 許可後は実デバイス一覧(iPhoneなら超広角なども)に置き換わる
+      function isFrontSelection() {
+        if (facingSel.value === "user") return true;
+        if (facingSel.value === "environment") return false;
+        const opt = facingSel.selectedOptions[0];
+        return /前面|フロント|front|user|facetime/i.test(opt ? opt.textContent : "");
+      }
+
+      async function populateCameras() {
+        try {
+          if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+          const devs = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "videoinput");
+          if (devs.length < 2 || !devs.some((d) => d.label)) return; // ラベル未取得(未許可)なら前面/背面のまま
+          const prev = facingSel.value;
+          facingSel.innerHTML = "";
+          for (const d of devs) {
+            const o = document.createElement("option");
+            o.value = "dev:" + d.deviceId;
+            o.textContent = d.label || "カメラ";
+            facingSel.appendChild(o);
+          }
+          const track = stream && stream.getVideoTracks()[0];
+          const set = track && track.getSettings ? track.getSettings() : null;
+          if (set && set.deviceId && Array.from(facingSel.options).some((o) => o.value === "dev:" + set.deviceId)) {
+            facingSel.value = "dev:" + set.deviceId;
+          } else if (Array.from(facingSel.options).some((o) => o.value === prev)) {
+            facingSel.value = prev;
+          }
+        } catch (_e) { /* 一覧が取れなくても前面/背面指定で動作は継続 */ }
+      }
+
       facingSel.addEventListener("change", () => {
-        mirrorChk.checked = facingSel.value === "user";
+        mirrorChk.checked = isFrontSelection();
         applyMirror();
         if (running) startCamera();
       });
       applyMirror();
+
+      // ---- カメラ自体のズーム(対応端末のみ表示。iOS/Androidの多くで対応) ----
+      function setupOpticalZoom(track) {
+        optWrap.hidden = true;
+        optSlider.oninput = null;
+        try {
+          const caps = track && track.getCapabilities ? track.getCapabilities() : null;
+          const z = caps && caps.zoom;
+          if (!z || typeof z !== "object" || !isFinite(z.max) || z.max <= (z.min || 0)) return;
+          optSlider.min = z.min;
+          optSlider.max = z.max;
+          optSlider.step = z.step || 0.1;
+          const cur = (track.getSettings && track.getSettings().zoom) || z.min;
+          optSlider.value = cur;
+          optVal.textContent = "×" + (Math.round(cur * 10) / 10);
+          optWrap.hidden = false;
+          optSlider.oninput = () => {
+            const v = Number(optSlider.value);
+            optVal.textContent = "×" + (Math.round(v * 10) / 10);
+            track.applyConstraints({ advanced: [{ zoom: v }] }).catch(() => {});
+          };
+        } catch (_e) { /* 非対応ブラウザでは表示しない */ }
+      }
+
+      // ---- 表示ズーム: プレビューの拡大表示のみ。検出はフレーム全体に対して行われる ----
+      let vScale = 1, vTx = 0, vTy = 0;
+
+      function applyView() {
+        const w = wrap.clientWidth, h = wrap.clientHeight;
+        const maxX = (vScale - 1) * w / 2, maxY = (vScale - 1) * h / 2;
+        vTx = Math.min(maxX, Math.max(-maxX, vTx));
+        vTy = Math.min(maxY, Math.max(-maxY, vTy));
+        zoomBox.style.transform = "translate(" + vTx + "px," + vTy + "px) scale(" + vScale + ")";
+        viewZoomVal.textContent = "×" + (Math.round(vScale * 10) / 10);
+      }
+
+      // (cx,cy)は要素中心を原点とした画面上の固定点。省略時は中心
+      function setViewScaleAt(s, cx, cy) {
+        const ns = Math.min(4, Math.max(1, s));
+        const k = ns / vScale;
+        cx = cx || 0; cy = cy || 0;
+        vTx = cx - (cx - vTx) * k;
+        vTy = cy - (cy - vTy) * k;
+        vScale = ns;
+        if (vScale === 1) { vTx = 0; vTy = 0; }
+        applyView();
+      }
+
+      document.getElementById("liveViewZoomIn").addEventListener("click", () => setViewScaleAt(vScale * 1.3));
+      document.getElementById("liveViewZoomOut").addEventListener("click", () => setViewScaleAt(vScale / 1.3));
+      document.getElementById("liveViewZoomReset").addEventListener("click", () => setViewScaleAt(1));
+
+      const vPointers = new Map();
+      let vPinch = null, vPan = null, vLastTap = 0;
+
+      function relPos(ev) {
+        const r = wrap.getBoundingClientRect();
+        return { x: ev.clientX - r.left - r.width / 2, y: ev.clientY - r.top - r.height / 2 };
+      }
+
+      wrap.addEventListener("pointerdown", (ev) => {
+        wrap.setPointerCapture(ev.pointerId);
+        const p = relPos(ev);
+        vPointers.set(ev.pointerId, p);
+        if (vPointers.size === 2) {
+          const pts = Array.from(vPointers.values());
+          vPinch = {
+            d: Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y),
+            mid: { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 },
+            scale: vScale,
+          };
+          vPan = null;
+        } else if (vPointers.size === 1) {
+          const now = performance.now();
+          if (now - vLastTap < 300) { setViewScaleAt(1); vLastTap = 0; } else { vLastTap = now; }
+          if (vScale > 1) vPan = { x: p.x, y: p.y, tx: vTx, ty: vTy };
+        }
+      });
+      wrap.addEventListener("pointermove", (ev) => {
+        if (!vPointers.has(ev.pointerId)) return;
+        const p = relPos(ev);
+        vPointers.set(ev.pointerId, p);
+        if (vPinch && vPointers.size >= 2) {
+          const pts = Array.from(vPointers.values());
+          const d = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+          if (vPinch.d > 0) setViewScaleAt(vPinch.scale * (d / vPinch.d), vPinch.mid.x, vPinch.mid.y);
+        } else if (vPan) {
+          vTx = vPan.tx + (p.x - vPan.x);
+          vTy = vPan.ty + (p.y - vPan.y);
+          applyView();
+        }
+      });
+      function endViewPointer(ev) {
+        vPointers.delete(ev.pointerId);
+        if (vPointers.size < 2) vPinch = null;
+        if (!vPointers.size) vPan = null;
+      }
+      wrap.addEventListener("pointerup", endViewPointer);
+      wrap.addEventListener("pointercancel", endViewPointer);
+      wrap.addEventListener("wheel", (ev) => {
+        ev.preventDefault();
+        const p = relPos(ev);
+        setViewScaleAt(vScale * (ev.deltaY < 0 ? 1.15 : 1 / 1.15), p.x, p.y);
+      }, { passive: false });
 
       function status(msg) { statusEl.textContent = msg || ""; }
 
@@ -312,15 +453,18 @@
             }
           }
           status("カメラを起動中…");
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: facingSel.value, width: { ideal: 1280 }, height: { ideal: 720 } },
-            audio: false,
-          });
+          const sel = facingSel.value;
+          const vconst = sel.indexOf("dev:") === 0
+            ? { deviceId: { exact: sel.slice(4) }, width: { ideal: 1280 }, height: { ideal: 720 } }
+            : { facingMode: sel, width: { ideal: 1280 }, height: { ideal: 720 } };
+          stream = await navigator.mediaDevices.getUserMedia({ video: vconst, audio: false });
           video.srcObject = stream;
           await video.play();
           running = true;
           startBtn.textContent = "カメラ停止";
           status("");
+          setupOpticalZoom(stream.getVideoTracks()[0]);
+          populateCameras(); // 許可済みになったので実デバイス名で選択肢を更新
           loop();
         } catch (e) {
           console.error(e);
@@ -344,6 +488,7 @@
         }
         video.srcObject = null;
         startBtn.textContent = "カメラ開始";
+        optWrap.hidden = true;
         resetSession();
         const { ctx, w, h } = fitCanvasTo(wrap, canvas);
         ctx.clearRect(0, 0, w, h);

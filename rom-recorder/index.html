@@ -63,10 +63,32 @@
       </div>
       <p class="note" id="liveDef"></p>
 
-      <div id="liveWrap" class="video-wrap">
-        <video id="liveVideo" autoplay playsinline muted></video>
-        <canvas id="liveOverlay"></canvas>
+      <div class="controls">
+        <div class="ctl">表示ズーム(計測には影響しません)
+          <div class="toolbar">
+            <button type="button" id="liveViewZoomOut" class="btn btn-sm">－</button>
+            <button type="button" id="liveViewZoomIn" class="btn btn-sm">＋</button>
+            <button type="button" id="liveViewZoomReset" class="btn btn-sm">全体</button>
+            <span id="liveViewZoomVal" class="count">×1</span>
+          </div>
+        </div>
+        <label class="ctl" id="liveOptZoomWrap" hidden>カメラズーム
+          <div class="toolbar">
+            <input type="range" id="liveOptZoom">
+            <span id="liveOptZoomVal" class="count"></span>
+          </div>
+        </label>
       </div>
+
+      <div id="liveWrap" class="video-wrap">
+        <div class="video-zoom" id="liveZoomBox">
+          <video id="liveVideo" autoplay playsinline muted></video>
+          <canvas id="liveOverlay"></canvas>
+        </div>
+      </div>
+      <p class="note">プレビューは<strong>ピンチで拡大・ドラッグで移動・ダブルタップで全体表示</strong>。
+        拡大は表示だけで、計測はカメラに写っている範囲全体で行われます(体が画面から切れないように)。
+        iPhoneで全身が入らないときは、カメラ開始後に「カメラ」の一覧から<strong>超広角</strong>を選ぶと広く写せます。</p>
 
       <div class="readout-row">
         <div id="liveReadout" class="readout">--</div>

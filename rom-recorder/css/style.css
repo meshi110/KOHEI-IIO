@@ -263,6 +263,16 @@ main { max-width: 1000px; margin: 0 auto; padding: 16px; }
 
 .video-wrap.mirror video, .video-wrap.mirror canvas { transform: scaleX(-1); }
 
+/* ライブプレビューの表示ズーム(ピンチ/ボタン)。transformは描画のみでレイアウト不変 */
+#liveWrap { touch-action: none; }
+.video-zoom {
+  position: relative;
+  transform-origin: center center;
+  will-change: transform;
+}
+
+.toolbar input[type="range"] { width: 150px; accent-color: var(--accent); align-self: center; }
+
 /* ---- 読み値 ---- */
 
 .readout-row { text-align: center; margin: 8px 0 0; }
