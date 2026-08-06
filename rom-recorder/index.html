@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ROMレコーダー">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f1f5f9">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f172a">
+  <title>ROMレコーダー | 関節角度計測・記録</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="title-row">
+      <svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
+        <path d="M8 52 A 24 24 0 0 1 56 52" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+        <line x1="32" y1="52" x2="32" y2="44" stroke="currentColor" stroke-width="3"/>
+        <line x1="12" y1="52" x2="18" y2="49" stroke="currentColor" stroke-width="3"/>
+        <line x1="52" y1="52" x2="46" y2="49" stroke="currentColor" stroke-width="3"/>
+        <line x1="32" y1="52" x2="14" y2="24" stroke="#22d3ee" stroke-width="4" stroke-linecap="round"/>
+        <line x1="32" y1="52" x2="54" y2="34" stroke="#22d3ee" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="32" cy="52" r="4" fill="#22d3ee"/>
+      </svg>
+      <h1>ROMレコーダー</h1>
+      <span class="subtitle">関節角度計測・記録</span>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button type="button" data-tab="live" class="active">AIカメラ</button>
+      <button type="button" data-tab="video">動画解析</button>
+      <button type="button" data-tab="photo">写真計測</button>
+      <button type="button" data-tab="records">記録</button>
+      <button type="button" data-tab="settings">設定</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ================= AIカメラ ================= -->
+    <section id="panel-live" class="panel active">
+      <div class="controls">
+        <label class="ctl">関節・運動
+          <select id="liveJoint"></select>
+        </label>
+        <div class="ctl">側
+          <div class="seg">
+            <button type="button" id="liveSideL">左</button>
+            <button type="button" id="liveSideR" class="active">右</button>
+          </div>
+        </div>
+        <label class="ctl">カメラ
+          <select id="liveFacing">
+            <option value="user">前面(自撮り)</option>
+            <option value="environment" selected>背面</option>
+          </select>
+        </label>
+        <label class="chk"><input type="checkbox" id="liveMirror">鏡像表示</label>
+        <label class="chk" title="単眼カメラからの3D推定は実験的機能です"><input type="checkbox" id="live3D">3D角度(実験的)</label>
+      </div>
+      <p class="note" id="liveDef"></p>
+
+      <div id="liveWrap" class="video-wrap">
+        <video id="liveVideo" autoplay playsinline muted></video>
+        <canvas id="liveOverlay"></canvas>
+      </div>
+
+      <div class="readout-row">
+        <div id="liveReadout" class="readout">--</div>
+        <div id="liveSub" class="readout-sub"></div>
+      </div>
+      <p class="status" id="liveStatus"></p>
+
+      <div class="btn-row">
+        <button type="button" id="liveStart" class="btn">カメラ開始</button>
+        <button type="button" id="liveMeasure" class="btn btn-go">計測開始</button>
+      </div>
+      <div id="liveResult" class="chip-row"></div>
+      <p class="note">計測中の最大値・最小値を追跡します。「計測終了」後に表示されるボタンから記録できます。</p>
+    </section>
+
+    <!-- ================= 動画解析 ================= -->
+    <section id="panel-video" class="panel">
+      <div class="controls">
+        <label class="btn file-btn">動画を選択
+          <input type="file" id="vidFile" accept="video/*" hidden>
+        </label>
+        <label class="ctl">関節・運動
+          <select id="vidJoint"></select>
+        </label>
+        <div class="ctl">側
+          <div class="seg">
+            <button type="button" id="vidSideL">左</button>
+            <button type="button" id="vidSideR" class="active">右</button>
+          </div>
+        </div>
+        <label class="ctl">解析速度
+          <select id="vidRate">
+            <option value="0.25">0.25×(高密度)</option>
+            <option value="0.5">0.5×</option>
+            <option value="1" selected>1×</option>
+          </select>
+        </label>
+        <label class="chk"><input type="checkbox" id="vid3D">3D角度(実験的)</label>
+      </div>
+
+      <div id="vidWrap" class="video-wrap">
+        <video id="vidPlayer" controls playsinline preload="metadata"></video>
+        <canvas id="vidOverlay"></canvas>
+      </div>
+
+      <div class="btn-row">
+        <button type="button" id="vidAnalyze" class="btn btn-go">解析開始</button>
+        <button type="button" id="vidCSV" class="btn" disabled>時系列CSV</button>
+      </div>
+      <p class="status" id="vidStatus"></p>
+      <canvas id="vidChart" class="chart"></canvas>
+      <p class="stats" id="vidStats"></p>
+      <div id="vidResult" class="chip-row"></div>
+      <p class="note">グラフをタップするとその時点へ動画がシークします。歩行・立ち上がりなどの動作解析にどうぞ。</p>
+    </section>
+
+    <!-- ================= 写真計測 ================= -->
+    <section id="panel-photo" class="panel">
+      <div class="controls">
+        <label class="btn file-btn">画像を開く
+          <input type="file" id="photoFileInput" accept="image/*" hidden>
+        </label>
+        <label class="btn file-btn">カメラで撮影
+          <input type="file" id="photoCameraInput" accept="image/*" capture="environment" hidden>
+        </label>
+        <div class="ctl">モード
+          <div class="seg">
+            <button type="button" id="photoMode3" class="active" title="A-頂点-B の3点で角度">3点角</button>
+            <button type="button" id="photoMode4" title="2本の直線のなす角(Cobb角・FTAなど)">2直線</button>
+          </div>
+        </div>
+        <div class="ctl toolbar">
+          <button type="button" id="photoUndo" class="btn btn-sm" title="1つ戻す">戻す</button>
+          <button type="button" id="photoClear" class="btn btn-sm" title="計測を全消去">全消去</button>
+          <button type="button" id="photoRotate" class="btn btn-sm" title="90°回転">回転</button>
+          <button type="button" id="photoZoomIn" class="btn btn-sm">＋</button>
+          <button type="button" id="photoZoomOut" class="btn btn-sm">－</button>
+          <button type="button" id="photoFit" class="btn btn-sm">全体</button>
+        </div>
+      </div>
+      <p class="status" id="photoHint"></p>
+      <canvas id="photoCanvas"></canvas>
+      <p class="note">タップで点を置き、点はドラッグで微調整(拡大鏡付き)。ピンチ/ホイールで拡大、ドラッグで移動。X線画像のCobb角・FTAなどは「2直線」モードで。</p>
+      <div id="photoEmpty" class="empty">まだ計測がありません</div>
+      <div id="photoMeasList" class="meas-list"></div>
+    </section>
+
+    <!-- ================= 記録 ================= -->
+    <section id="panel-records" class="panel">
+      <div class="controls">
+        <label class="ctl">患者
+          <select id="recFilterPatient"></select>
+        </label>
+        <label class="ctl">関節
+          <select id="recFilterJoint"></select>
+        </label>
+        <span id="recCount" class="count"></span>
+      </div>
+      <div class="btn-row wrap">
+        <button type="button" id="recAdd" class="btn btn-go">＋ 手入力で追加</button>
+        <button type="button" id="recCSV" class="btn">CSVエクスポート</button>
+        <button type="button" id="recBackup" class="btn">バックアップ(JSON)</button>
+        <label class="btn file-btn">復元(JSON)
+          <input type="file" id="recRestoreInput" accept="application/json,.json" hidden>
+        </label>
+        <button type="button" id="recClearAll" class="btn btn-danger">全削除</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>日時</th><th>患者ID</th><th>関節・運動</th><th>側</th><th>角度</th><th>方法</th><th>メモ</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="recTableBody"></tbody>
+        </table>
+      </div>
+      <div id="recEmpty" class="empty">まだ記録がありません。各計測タブから、または「手入力で追加」から記録できます。</div>
+
+      <h2 class="section-title">経過グラフ</h2>
+      <div class="controls">
+        <label class="ctl">患者
+          <select id="progPatient"></select>
+        </label>
+        <label class="ctl">計測項目
+          <select id="progSeries"></select>
+        </label>
+      </div>
+      <canvas id="recChart" class="chart"></canvas>
+      <p class="note">点線は設定タブで入力した参考可動域です。点をタップすると日付と値を表示します。</p>
+    </section>
+
+    <!-- ================= 設定 ================= -->
+    <section id="panel-settings" class="panel">
+      <h2 class="section-title">参考可動域(基準値)</h2>
+      <p class="note">
+        経過グラフの点線として表示されます。<strong>既定では空欄</strong>です。
+        下のボタンで一般的な候補値を入力できますが、これは<strong>二次情報由来で学会原典と未照合(要確認)</strong>のため、
+        原典をご確認のうえ必要に応じて修正してください。
+      </p>
+      <div class="table-wrap narrow">
+        <table>
+          <thead><tr><th>関節・運動</th><th>参考可動域</th></tr></thead>
+          <tbody id="refTableBody"></tbody>
+        </table>
+      </div>
+      <div class="btn-row">
+        <button type="button" id="refPrefill" class="btn">一般的な候補値をまとめて入力(要確認)</button>
+      </div>
+      <p class="note">原典(日本整形外科学会・日本リハビリテーション医学会「関節可動域表示ならびに測定法」2022年4月改訂):</p>
+      <ul class="sources" id="refSources"></ul>
+
+      <h2 class="section-title">AIモデル</h2>
+      <label class="ctl">姿勢推定モデル
+        <select id="setModel">
+          <option value="lite">軽量(同梱・オフライン可)</option>
+          <option value="full">高精度(初回にネット接続が必要)</option>
+        </select>
+      </label>
+
+      <h2 class="section-title">データの取り扱い</h2>
+      <p class="note">
+        記録・画像・映像はすべて<strong>この端末のブラウザ内だけ</strong>で処理・保存され、外部サーバへは一切送信されません。
+        ブラウザのサイトデータ削除で記録が消えることがあるため、「記録」タブから定期的にバックアップ(JSON)を保存してください。
+        患者IDには氏名やカルテ番号そのものではなく、<strong>匿名化した研究ID等</strong>の使用を推奨します。
+      </p>
+      <div class="btn-row">
+        <button type="button" id="showDisclaimer" class="btn">免責事項を表示</button>
+      </div>
+      <p class="note version">ROMレコーダー v1.0 ・ 姿勢推定: MediaPipe Pose Landmarker (Apache-2.0) 同梱</p>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <p>※ データはこの端末に保存されます(外部送信なし)</p>
+    <p>ホーム画面に追加するとアプリのように使えます</p>
+  </footer>
+
+  <!-- 記録ダイアログ -->
+  <dialog id="saveDialog">
+    <form id="saveForm" method="dialog">
+      <h2 id="saveTitle">計測を記録</h2>
+      <label>患者ID(匿名化推奨)
+        <input id="savePatient" list="patientList" autocomplete="off" placeholder="例: A-012">
+      </label>
+      <div class="grid2">
+        <label>関節
+          <input id="saveJoint" list="jointList" autocomplete="off" placeholder="例: 膝">
+        </label>
+        <label>運動
+          <input id="saveMotion" list="motionList" autocomplete="off" placeholder="例: 屈曲">
+        </label>
+      </div>
+      <div class="grid2">
+        <label>側
+          <select id="saveSide">
+            <option value=""></option>
+            <option value="右">右</option>
+            <option value="左">左</option>
+            <option value="両側">両側</option>
+          </select>
+        </label>
+        <label>角度(°)
+          <input id="saveAngle" type="number" step="0.1" inputmode="decimal" required>
+        </label>
+      </div>
+      <label>方法
+        <input id="saveMethod" readonly tabindex="-1">
+      </label>
+      <label>メモ
+        <input id="saveMemo" autocomplete="off" placeholder="肢位・条件など(任意)">
+      </label>
+      <div class="btn-row">
+        <button type="submit" class="btn btn-go">保存</button>
+        <button type="button" id="saveCancel" class="btn">キャンセル</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 初回免責 -->
+  <dialog id="disclaimerDialog">
+    <h2>ご使用の前に</h2>
+    <ul class="disclaimer">
+      <li>本アプリは関節角度の計測・記録を<strong>補助する研究・教育用ツール</strong>であり、<strong>医療機器ではありません</strong>(薬機法上の承認・認証を受けていません)。診断・治療方針の決定は、標準的な計測(ゴニオメーター等)と医師の判断で行ってください。</li>
+      <li>AI姿勢推定による角度は、撮影方向・服装・照明などの条件で<strong>誤差が生じます</strong>。文献上、課題によっては絶対角の誤差が大きいことが報告されています。目安・経過記録としてご利用ください。</li>
+      <li>データは<strong>この端末のブラウザ内にのみ</strong>保存され、外部送信されません。ブラウザのデータ削除で消えることがあるため、定期的にバックアップしてください。</li>
+      <li>患者情報保護のため、患者IDは<strong>匿名化ID</strong>を推奨します。氏名など個人を特定できる情報は入力しないでください。</li>
+    </ul>
+    <div class="btn-row">
+      <button type="button" id="discAck" class="btn btn-go">同意して使用開始</button>
+    </div>
+  </dialog>
+
+  <div id="toast" role="status"></div>
+
+  <datalist id="patientList"></datalist>
+  <datalist id="jointList">
+    <option value="肩"></option><option value="肘"></option><option value="前腕"></option>
+    <option value="手"></option><option value="股"></option><option value="膝"></option>
+    <option value="足"></option><option value="頸椎"></option><option value="腰椎"></option>
+  </datalist>
+  <datalist id="motionList">
+    <option value="屈曲"></option><option value="伸展"></option><option value="外転"></option>
+    <option value="内転"></option><option value="外旋"></option><option value="内旋"></option>
+    <option value="背屈"></option><option value="底屈"></option><option value="回内"></option>
+    <option value="回外"></option><option value="掌屈"></option>
+  </datalist>
+
+  <script src="js/angle-core.js" defer></script>
+  <script src="js/refs.js" defer></script>
+  <script src="js/store.js" defer></script>
+  <script src="js/chart.js" defer></script>
+  <script src="js/photo.js" defer></script>
+  <script src="js/ai.js" defer></script>
+  <script src="js/app.js" defer></script>
+</body>
+</html>
