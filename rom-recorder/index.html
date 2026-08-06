@@ -34,6 +34,7 @@
       <button type="button" data-tab="video">動画解析</button>
       <button type="button" data-tab="photo">写真計測</button>
       <button type="button" data-tab="mmt">MMT</button>
+      <button type="button" data-tab="vexam">ボイス検査</button>
       <button type="button" data-tab="records">記録</button>
       <button type="button" data-tab="settings">設定</button>
     </nav>
@@ -268,6 +269,88 @@
       <div id="mmtHistory" class="mmt-history"></div>
     </section>
 
+    <!-- ================= ボイス検査 ================= -->
+    <section id="panel-vexam" class="panel">
+
+      <div id="vexSetup">
+        <h2 class="section-title">音声ガイド評価(徒手検査)</h2>
+        <div class="controls">
+          <label class="ctl">患者ID(匿名化推奨)
+            <input id="vexPatient" list="patientList" autocomplete="off" placeholder="例: A-012">
+          </label>
+          <label class="ctl">評価シート
+            <select id="vexTemplate"></select>
+          </label>
+          <button type="button" id="vexEditSheets" class="btn">シートを編集</button>
+        </div>
+        <p class="note">
+          スタート後は<strong>画面に触れずに</strong>進みます。イヤホンから項目が読み上げられたら結果を声で答えてください。
+          例: 「プラス」「陰性」「4プラス」(MMT)、「2プラス」「亢進」(反射)、「120」(角度)、「Th7」(レベル)。
+          音声コマンド: <strong>スキップ / 戻る / もう一度 / 一時停止 / 再開 / 終了</strong>。
+          Bluetoothインカムやイヤホンマイクの使用を推奨します(スピーカーだと読み上げを拾うことがあります)。
+        </p>
+        <p class="status" id="vexSupport"></p>
+        <div class="btn-row">
+          <button type="button" id="vexStart" class="btn btn-go big">スタート</button>
+        </div>
+
+        <h2 class="section-title">読み上げ設定</h2>
+        <div class="controls">
+          <label class="ctl">速さ <span id="vexRateVal" class="count"></span>
+            <input type="range" id="vexRate" min="0.7" max="1.4" step="0.05">
+          </label>
+          <label class="ctl">声
+            <select id="vexVoice"></select>
+          </label>
+          <label class="chk"><input type="checkbox" id="vexEcho">結果を復唱する</label>
+          <button type="button" id="vexTest" class="btn">テスト読み上げ</button>
+        </div>
+
+        <h2 class="section-title">実施記録</h2>
+        <div class="btn-row wrap">
+          <button type="button" id="vexHisAllCSV" class="btn">全記録CSV</button>
+        </div>
+        <div id="vexHisEmpty" class="empty">まだ記録がありません</div>
+        <div id="vexHisList"></div>
+      </div>
+
+      <div id="vexExec" hidden>
+        <div class="exec-top">
+          <span id="vexProgress" class="count"></span>
+          <span id="vexMic" class="count"></span>
+        </div>
+        <div class="bar"><div id="vexBar"></div></div>
+        <div id="vexItem" class="exec-item">--</div>
+        <p id="vexStatus" class="exec-status"></p>
+        <p id="vexInterim" class="status"></p>
+        <p id="vexLast" class="status"></p>
+        <p id="vexNext" class="note"></p>
+        <div class="btn-row wrap">
+          <button type="button" id="vexSkip" class="btn">スキップ</button>
+          <button type="button" id="vexBack" class="btn">戻る</button>
+          <button type="button" id="vexRepeat" class="btn">もう一度</button>
+          <button type="button" id="vexPause" class="btn">一時停止</button>
+          <button type="button" id="vexEnd" class="btn btn-danger">終了</button>
+        </div>
+        <p class="note">ボタンは補助用です。通常は音声だけで進みます。</p>
+      </div>
+
+      <div id="vexResult" hidden>
+        <h2 class="section-title">評価シート(確認・修正)</h2>
+        <p class="stats" id="vexResultSummary"></p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>項目</th><th>結果(タップで修正)</th><th>認識テキスト</th></tr></thead>
+            <tbody id="vexResultBody"></tbody>
+          </table>
+        </div>
+        <div class="btn-row">
+          <button type="button" id="vexResultSave" class="btn btn-go">保存する</button>
+          <button type="button" id="vexResultDiscard" class="btn btn-danger">破棄</button>
+        </div>
+      </div>
+    </section>
+
     <!-- ================= 記録 ================= -->
     <section id="panel-records" class="panel">
       <div class="controls">
@@ -484,6 +567,62 @@
     </div>
   </dialog>
 
+  <!-- ボイス検査: シート編集 -->
+  <dialog id="vexSheetDialog">
+    <h2>評価シートの編集</h2>
+    <div class="controls">
+      <label class="ctl">シート
+        <select id="vexTplSelect"></select>
+      </label>
+      <label class="ctl">シート名
+        <input id="vexTplName" autocomplete="off">
+      </label>
+      <span id="vexTplCount" class="count"></span>
+    </div>
+    <div class="btn-row wrap">
+      <button type="button" id="vexTplNew" class="btn btn-sm">＋ 新規</button>
+      <button type="button" id="vexTplCopy" class="btn btn-sm">複製(自分用に並べ替え)</button>
+      <button type="button" id="vexTplAddLib" class="btn btn-sm btn-go">＋ ライブラリから追加</button>
+      <button type="button" id="vexTplDelete" class="btn btn-sm btn-danger">削除</button>
+    </div>
+    <div id="vexTplItems" class="tpl-list"></div>
+    <div class="controls custom-add">
+      <label class="ctl">カスタム項目名
+        <input id="vexCustomName" autocomplete="off" placeholder="例: SLR">
+      </label>
+      <label class="ctl">読み(省略可)
+        <input id="vexCustomSay" autocomplete="off" placeholder="例: エスエルアール">
+      </label>
+      <label class="ctl">タイプ
+        <select id="vexCustomType">
+          <option value="pm">±(陽性/陰性)</option>
+          <option value="num">数値</option>
+          <option value="mmt">MMT(0-5±)</option>
+          <option value="reflex">反射(0〜4+)</option>
+          <option value="level">脊椎レベル</option>
+          <option value="nrs">NRS(0-10)</option>
+          <option value="text">自由発話</option>
+        </select>
+      </label>
+      <label class="chk"><input type="checkbox" id="vexCustomBi" checked>両側</label>
+      <button type="button" id="vexTplAddCustom" class="btn btn-sm">追加</button>
+    </div>
+    <p class="note">↑↓ で順番を入れ替えられます(読み上げはこの順)。「読み」は英語略語を日本語で読ませたいときに設定します。
+      初期シートは提示いただいた診察ルーティーンをそのまま収載したもので、標準様式ではありません。自由に編集してください。</p>
+    <div class="btn-row">
+      <button type="button" id="vexSheetClose" class="btn btn-go">閉じる</button>
+    </div>
+  </dialog>
+
+  <!-- ボイス検査: ライブラリ -->
+  <dialog id="vexLibDialog">
+    <h2>ライブラリから追加</h2>
+    <div id="vexLibBody" class="lib-body"></div>
+    <div class="btn-row">
+      <button type="button" id="vexLibClose" class="btn">閉じる</button>
+    </div>
+  </dialog>
+
   <div id="toast" role="status"></div>
 
   <datalist id="patientList"></datalist>
@@ -511,6 +650,12 @@
   <script src="js/voice-parse.js" defer></script>
   <script src="js/voice.js" defer></script>
   <script src="js/mmt.js" defer></script>
+  <script src="js/vex-parse.js" defer></script>
+  <script src="js/vex-items.js" defer></script>
+  <script src="js/vex-store.js" defer></script>
+  <script src="js/vex-session.js" defer></script>
+  <script src="js/vex-speech.js" defer></script>
+  <script src="js/vex-ui.js" defer></script>
   <script src="js/app.js" defer></script>
 </body>
 </html>

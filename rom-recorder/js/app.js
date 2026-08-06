@@ -11,7 +11,7 @@
 
   const $ = (id) => document.getElementById(id);
 
-  let liveCtl = null, vidCtl = null, photoCtl = null, mmtCtl = null;
+  let liveCtl = null, vidCtl = null, photoCtl = null, mmtCtl = null, vexCtl = null;
   let recChart = null;
   let editingId = null;
 
@@ -68,6 +68,7 @@
     live: () => liveCtl && liveCtl.deactivate(),
     video: () => vidCtl && vidCtl.deactivate(),
     mmt: () => mmtCtl && mmtCtl.deactivate(),
+    vexam: () => vexCtl && vexCtl.deactivate(),
     records: () => stopRecVoice(),
   };
   let currentTab = "live";
@@ -83,6 +84,7 @@
       p.classList.toggle("active", p.id === "panel-" + name);
     });
     if (name === "records") refreshRecords();
+    if (name === "vexam" && vexCtl) vexCtl.refresh();
     if (name === "photo" && photoCtl) photoCtl.redraw();
     if (name === "mmt" && mmtCtl) mmtCtl.refresh();
   }
@@ -645,6 +647,7 @@
     liveCtl = global.AiLive.init(App);
     vidCtl = global.AiVideo.init(App);
     mmtCtl = global.MMT.init(App);
+    vexCtl = global.VexUI.init(App);
 
     renderRefTable();
     renderRefSources();

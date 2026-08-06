@@ -3,12 +3,14 @@
  * アプリ本体: ネット優先(更新反映)・オフライン時キャッシュ
  * vendor/CDNの大きな不変アセット(モデル・WASM): キャッシュ優先
  */
-const VERSION = "romrec-v1.3.0";
+const VERSION = "romrec-v1.4.0";
 const CORE = [
   "./", "./index.html", "./css/style.css",
   "./js/angle-core.js", "./js/refs.js", "./js/mmt-defs.js", "./js/store.js", "./js/chart.js",
   "./js/shoulder-exam.js", "./js/shoulder-ui.js",
-  "./js/photo.js", "./js/ai.js", "./js/voice-parse.js", "./js/voice.js", "./js/mmt.js", "./js/app.js",
+  "./js/photo.js", "./js/ai.js", "./js/voice-parse.js", "./js/voice.js", "./js/mmt.js",
+  "./js/vex-parse.js", "./js/vex-items.js", "./js/vex-store.js", "./js/vex-session.js", "./js/vex-speech.js", "./js/vex-ui.js",
+  "./js/app.js",
   "./manifest.webmanifest", "./icons/icon.svg",
 ];
 const CDN_HOSTS = ["cdn.jsdelivr.net", "storage.googleapis.com"];
