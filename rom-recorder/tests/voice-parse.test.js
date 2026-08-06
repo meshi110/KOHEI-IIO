@@ -173,6 +173,58 @@ ok("全角入力にも対応: 右 Ｌ４ ４", () => {
   assert.strictEqual(r.grade, 4);
 });
 
+console.log("患者ID(parsePatient):");
+
+const KNOWN = ["A-012", "B-3", "0034"];
+
+ok("合図語＋ID形式: 患者 A12", () => {
+  const r = VP.parsePatient("患者 A12", []);
+  assert.strictEqual(r.patient, "A12");
+  assert.strictEqual(r.matched, "pattern");
+});
+
+ok("既存IDの表記に解決する(A12 → A-012 ではなく完全一致のみ)", () => {
+  const r = VP.parsePatient("患者 A012", KNOWN);
+  assert.strictEqual(r.patient, "A-012", "ハイフン等を無視して既存IDに一致させる");
+  assert.strictEqual(r.matched, "known");
+});
+
+ok("カタカナ読みの英字: かんじゃ エー012", () => {
+  const r = VP.parsePatient("かんじゃ エー012", KNOWN);
+  assert.strictEqual(r.patient, "A-012");
+});
+
+ok("数字のみのID: 患者ID 0034", () => {
+  const r = VP.parsePatient("患者ID 0034", KNOWN);
+  assert.strictEqual(r.patient, "0034");
+});
+
+ok("合図語がなければ患者切替にしない", () => {
+  assert.strictEqual(VP.parsePatient("A12", KNOWN), null);
+  assert.strictEqual(VP.parsePatient("右 L4 4", KNOWN), null);
+});
+
+ok("氏名は採用しない(ID形式でないため弾かれる)", () => {
+  assert.strictEqual(VP.parsePatient("患者 山田太郎", KNOWN), null);
+  assert.strictEqual(VP.parsePatient("患者 やまだたろう", KNOWN), null);
+  assert.strictEqual(VP.parsePatient("患者 田中さん", KNOWN), null);
+  assert.strictEqual(VP.parsePatient("患者 スミス", KNOWN), null);
+});
+
+ok("英字だけ・記号だけも採用しない", () => {
+  assert.strictEqual(VP.parsePatient("患者 ABC", KNOWN), null, "数字が無いIDは受け付けない");
+  assert.strictEqual(VP.parsePatient("患者 ", KNOWN), null);
+});
+
+ok("長すぎる数字列は採用しない(誤認識対策)", () => {
+  assert.strictEqual(VP.parsePatient("患者 12345678", KNOWN), null);
+});
+
+ok("MMT発話を患者切替と誤認しない / 患者発話をMMTと誤認しない", () => {
+  assert.strictEqual(VP.parsePatient("右 L4 4", KNOWN), null);
+  assert.strictEqual(VP.parseMMT("患者 A12", DEFS), null, "患者発話はMMTとして解釈されない");
+});
+
 ok("transcriptに元の認識テキストを保持(監査用)", () => {
   const r = VP.parseMMT("右 L4 4", DEFS);
   assert.strictEqual(r.transcript, "右 L4 4");

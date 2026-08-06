@@ -258,9 +258,78 @@
     };
   }
 
+  // ---- 患者IDの音声指定 ----
+  //
+  // 氏名が音声に混入しないよう、構造的な歯止めを二重にかける:
+  //   1) 「患者」等の合図語がある発話しか患者切替として扱わない
+  //   2) 合図語の後ろが「英字＋数字」のID形式でなければ採用しない
+  //      (日本語の氏名はこの形に合致しないため、言ってしまっても登録されない)
+
+  // 音声認識は英字を読み(カタカナ)で返すことがあるため、読み→英字に変換する
+  const KANA_ALPHA = [
+    ["ダブリュー", "W"], ["エックス", "X"], ["エイチ", "H"], ["エッチ", "H"],
+    ["ジェイ", "J"], ["ジェー", "J"], ["ゼット", "Z"], ["ディー", "D"], ["デー", "D"],
+    ["ティー", "T"], ["テー", "T"], ["アール", "R"], ["キュー", "Q"], ["ブイ", "V"],
+    ["ワイ", "Y"], ["エフ", "F"], ["エヌ", "N"], ["エム", "M"], ["エル", "L"],
+    ["エス", "S"], ["ケー", "K"], ["ピー", "P"], ["ビー", "B"], ["シー", "C"],
+    ["ジー", "G"], ["アイ", "I"], ["オー", "O"], ["ユー", "U"], ["エー", "A"], ["エイ", "A"],
+    ["イー", "E"],
+  ];
+
+  function kanaToAlpha(s) {
+    let out = s;
+    for (const [kana, ch] of KANA_ALPHA) out = out.split(kana).join(ch);
+    return out;
+  }
+
+  // 患者切替の合図語
+  const PATIENT_TRIGGER = /(患者(?:ID|アイディー|番号)?|かんじゃ(?:ID|ばんごう)?|ペイシェント)/;
+
+  // 比較用に正規化(記号・空白を除いて大文字化)
+  function normalizeId(s) {
+    return toHalfWidth(String(s == null ? "" : s)).toUpperCase().replace(/[\s\-_ー－・.]/g, "");
+  }
+
+  /**
+   * 患者IDの音声を解釈する。
+   * 例: 「患者 A12」「かんじゃ エー12」「患者ID 0034」
+   * knownPatients: 既存の患者ID一覧(あれば読みの揺れを吸収して既存IDに解決する)
+   * 戻り値: {patient, matched:"known"|"pattern", transcript} / 採用できなければ null
+   */
+  function parsePatient(text, knownPatients) {
+    if (!text || !String(text).trim()) return null;
+    const raw = String(text).trim();
+    const s = toHalfWidth(raw);
+
+    const trig = PATIENT_TRIGGER.exec(s);
+    if (!trig) return null; // 合図語がなければ患者切替とみなさない
+
+    // 合図語より後ろだけを対象にする
+    const after = s.slice(trig.index + trig[0].length);
+    if (!after.trim()) return null;
+
+    const candidate = normalizeId(kanaToAlpha(after));
+    if (!candidate) return null;
+
+    // 既存の患者IDに一致すれば、その正式表記(ハイフン等を含む元の文字列)を返す
+    const known = Array.isArray(knownPatients) ? knownPatients : [];
+    for (const p of known) {
+      if (normalizeId(p) === candidate) {
+        return { patient: p, matched: "known", transcript: raw };
+      }
+    }
+
+    // 新規はID形式(英字0〜3文字＋数字1〜6桁)のみ受け付ける。氏名はここで弾かれる
+    if (/^[A-Z]{0,3}\d{1,6}$/.test(candidate)) {
+      return { patient: candidate, matched: "pattern", transcript: raw };
+    }
+    return null;
+  }
+
   const api = {
     toHalfWidth, kanjiToNumber, findNumber, detectSide, matchDict,
-    detectLevel, detectGrade, parseROM, parseMMT,
+    detectLevel, detectGrade, parseROM, parseMMT, parsePatient,
+    kanaToAlpha, normalizeId,
     JOINTS, MOTIONS,
   };
 

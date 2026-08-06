@@ -487,6 +487,7 @@
 
   let recRecognizer = null;
   let saveRecognizer = null;
+  let voicePatient = "";   // 音声で指定された対象患者(次の記録に適用)
 
   function stopRecVoice() {
     if (recRecognizer && recRecognizer.isRunning()) recRecognizer.stop();
@@ -513,11 +514,23 @@
         onError: (_k, msg) => toast(msg),
         onResult: (text, isFinal) => {
           if (!isFinal) return;
-          const parsed = global.VoiceParse.parseROM(text);
+          const VP = global.VoiceParse;
+          // 「患者 A12」で対象患者を先に指定できる(ID形式のみ。氏名は採用されない)
+          if (/(患者|かんじゃ|ペイシェント)/.test(VP.toHalfWidth(text))) {
+            const pt = VP.parsePatient(text, Store.listPatients());
+            if (pt) {
+              voicePatient = pt.patient;
+              toast("患者 " + pt.patient + " を対象にします");
+            } else {
+              toast("患者IDとして採用できません(ID形式のみ・氏名は登録されません)");
+            }
+            return;
+          }
+          const parsed = VP.parseROM(text);
           if (!parsed) { toast("解釈できません: 「" + text + "」 例: 「膝 屈曲 右 120」"); return; }
           stopRecVoice();
           openSaveDialog({
-            patient: $("recFilterPatient").value || "",
+            patient: voicePatient || $("recFilterPatient").value || "",
             joint: parsed.joint,
             motion: parsed.motion,
             side: parsed.side,

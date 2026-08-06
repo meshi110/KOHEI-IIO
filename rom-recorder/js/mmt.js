@@ -262,9 +262,25 @@
     function handleVoiceText(text, isFinal) {
       voiceEcho.textContent = (isFinal ? "" : "…") + text;
       if (!isFinal) return;
+
+      // 「患者 A12」のように合図語がある発話は患者切替として扱う。
+      // ID形式でない発話(氏名など)はここで採用されない。
+      if (/(患者|かんじゃ|ペイシェント)/.test(VP.toHalfWidth(text))) {
+        const pt = VP.parsePatient(text, Store.listPatients());
+        if (pt) {
+          switchPatient(pt.patient);
+          voiceEcho.textContent = "✓ 患者 " + pt.patient + " に切り替えました";
+          app.toast("患者 " + pt.patient + " に切り替え");
+        } else {
+          voiceEcho.textContent = "患者IDとして採用できません: 「" + text + "」" +
+            " ※ID形式(英字＋数字)のみ。氏名は登録されません";
+        }
+        return;
+      }
+
       const parsed = VP.parseMMT(text, defs);
       if (!parsed) {
-        voiceEcho.textContent = "解釈できません: 「" + text + "」 例: 「右 L4 4」";
+        voiceEcho.textContent = "解釈できません: 「" + text + "」 例: 「右 L4 4」「患者 A12」";
         return;
       }
       if (!visibleDefs().some((d) => d.level === parsed.level)) {
@@ -364,21 +380,28 @@
     // 患者が変わったら別の診察として扱う。値が変わっていない場合は何もしない
     // (入力欄からフォーカスが外れるたびに状態を捨てないようにするため)
     let lastPatient = patientInput.value.trim();
-    patientInput.addEventListener("change", () => {
-      const now = patient();
-      if (now === lastPatient) return;
-      lastPatient = now;
+
+    function switchPatient(id) {
+      patientInput.value = id;
+      if (id === lastPatient) return;
+      lastPatient = id;
       sessionTs = null;
       grid = {};
       render();
       renderHistory();
-    });
+    }
+
+    patientInput.addEventListener("change", () => switchPatient(patient()));
 
     $("mmtCSV").addEventListener("click", () => {
       const p = patient();
       const list = Store.loadMMT().filter((r) => !p || r.patient === p);
       if (!list.length) { app.toast("エクスポートするMMT記録がありません"); return; }
-      app.downloadText("mmt-records-" + app.stamp() + ".csv", Store.mmtToCSV(list), "text/csv");
+      const name = "mmt-records-" + (p ? p.replace(/[^A-Za-z0-9_-]/g, "") + "-" : "") + app.stamp() + ".csv";
+      app.downloadText(name, Store.mmtToCSV(list), "text/csv");
+      // どの範囲を書き出したかを明示する(患者が選ばれていると絞り込まれるため)
+      app.toast(p ? "患者 " + p + " のMMT " + list.length + "件を書き出しました"
+                  : "全患者のMMT " + list.length + "件を書き出しました");
     });
 
     buildTable();

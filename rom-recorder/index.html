@@ -177,8 +177,8 @@
       </div>
       <p class="voice-echo" id="mmtVoiceEcho"></p>
       <p class="note">
-        言い方の例: <strong>「右 L4 4」</strong>／<strong>「左 前脛骨筋 3プラス」</strong>。
-        患者IDや氏名は<strong>声に出さないでください</strong>(音声は部位・左右・数値のみ)。
+        言い方の例: <strong>「患者 A12」</strong>(患者切替)／<strong>「右 L4 4」</strong>／<strong>「左 前脛骨筋 3プラス」</strong>。
+        患者は<strong>ID形式(英字＋数字)のみ</strong>受け付けます。<strong>氏名は登録されません</strong>ので、声に出さないでください。
       </p>
       <p class="status" id="mmtStatus"></p>
 
@@ -293,9 +293,10 @@
       <p class="note" id="voiceLocalStatus"></p>
       <p class="note warn">
         <strong>ご注意:</strong> 音声認識はブラウザの標準機能(Web Speech API)を使います。
-        Chrome/Edge系では<strong>音声データが認識サーバーへ送信されて処理されます</strong>(端末内で完結しません)。
-        そのため本アプリでは音声で扱うのは<strong>部位・左右・数値のみ</strong>とし、
-        患者IDや氏名は画面で選択する設計にしています。<strong>声に出して患者情報を言わないでください。</strong>
+        Chrome/Edge系では既定で<strong>音声データが認識サーバーへ送信されて処理されます</strong>(端末内で完結しません)。
+        本アプリは端末内処理が使える環境では自動的にそちらを優先します。
+        音声で扱えるのは<strong>部位・左右・数値</strong>と<strong>ID形式(英字＋数字)の患者ID</strong>のみで、
+        <strong>氏名は形式が合わないため登録されません</strong>。匿名化IDであっても認識サーバーへ送られる点はご留意ください。
         この機能はオフライン(ネット未接続)では動作しません。
       </p>
       <div class="btn-row">
@@ -387,7 +388,7 @@
     <h2>音声入力を使う前に</h2>
     <ul class="disclaimer">
       <li>音声認識はブラウザ標準機能(Web Speech API)を使用します。Chrome/Edge系では既定で<strong>音声データが認識サーバーへ送信されて処理されます</strong>(端末内で完結しません)。本アプリは端末内処理が使える環境では自動的にそちらを優先しますが、使えない環境ではサーバー処理になります。</li>
-      <li>そのため、<strong>患者IDや氏名を声に出さないでください</strong>。音声で扱うのは「部位・左右・数値」のみで、患者IDは画面で選択します。</li>
+      <li>音声で扱えるのは「部位・左右・数値」と、<strong>ID形式(英字＋数字)の患者ID</strong>だけです。氏名は形式が合わないため登録されません。<strong>氏名は声に出さないでください。</strong></li>
       <li>認識結果は誤ることがあります。保存された値は<strong>必ず画面で確認</strong>してください。音声入力した記録には認識テキストがメモとして残ります。</li>
       <li>この機能には<strong>インターネット接続が必要</strong>です(オフラインでは動作しません)。他の機能はオフラインで使えます。</li>
     </ul>
