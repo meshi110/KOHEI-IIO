@@ -33,6 +33,7 @@
       <button type="button" data-tab="live" class="active">AIカメラ</button>
       <button type="button" data-tab="video">動画解析</button>
       <button type="button" data-tab="photo">写真計測</button>
+      <button type="button" data-tab="mmt">MMT</button>
       <button type="button" data-tab="records">記録</button>
       <button type="button" data-tab="settings">設定</button>
     </nav>
@@ -153,6 +154,48 @@
       <div id="photoMeasList" class="meas-list"></div>
     </section>
 
+    <!-- ================= MMT ================= -->
+    <section id="panel-mmt" class="panel">
+      <div class="controls">
+        <label class="ctl">患者ID(匿名化推奨・音声では扱いません)
+          <input id="mmtPatient" list="patientList" autocomplete="off" placeholder="例: A-012">
+        </label>
+        <div class="ctl">範囲
+          <div class="seg">
+            <button type="button" id="mmtRegionC">頸髄</button>
+            <button type="button" id="mmtRegionL">腰仙髄</button>
+            <button type="button" id="mmtRegionA" class="active">両方</button>
+          </div>
+        </div>
+        <button type="button" id="mmtNewSession" class="btn btn-sm">新しい診察</button>
+        <button type="button" id="mmtCSV" class="btn btn-sm">MMT CSV</button>
+      </div>
+      <p class="stats" id="mmtScore"></p>
+
+      <div class="btn-row">
+        <button type="button" id="mmtVoiceBtn" class="btn btn-voice">🎤 音声で入力</button>
+      </div>
+      <p class="voice-echo" id="mmtVoiceEcho"></p>
+      <p class="note">
+        言い方の例: <strong>「右 L4 4」</strong>／<strong>「左 前脛骨筋 3プラス」</strong>。
+        患者IDや氏名は<strong>声に出さないでください</strong>(音声は部位・左右・数値のみ)。
+      </p>
+      <p class="status" id="mmtStatus"></p>
+
+      <div class="table-wrap">
+        <table class="mmt-table">
+          <thead>
+            <tr><th>髄節</th><th>主な筋 / テスト動作</th><th>左</th><th>右</th></tr>
+          </thead>
+          <tbody id="mmtTableBody"></tbody>
+        </table>
+      </div>
+      <p class="note" id="mmtDefsNote"></p>
+
+      <h2 class="section-title">この患者の直近の記録</h2>
+      <div id="mmtHistory" class="mmt-history"></div>
+    </section>
+
     <!-- ================= 記録 ================= -->
     <section id="panel-records" class="panel">
       <div class="controls">
@@ -165,6 +208,7 @@
         <span id="recCount" class="count"></span>
       </div>
       <div class="btn-row wrap">
+        <button type="button" id="recVoiceBtn" class="btn btn-voice">🎤 音声で角度を記録</button>
         <button type="button" id="recAdd" class="btn btn-go">＋ 手入力で追加</button>
         <button type="button" id="recCSV" class="btn">CSVエクスポート</button>
         <button type="button" id="recBackup" class="btn">バックアップ(JSON)</button>
@@ -184,6 +228,17 @@
         </table>
       </div>
       <div id="recEmpty" class="empty">まだ記録がありません。各計測タブから、または「手入力で追加」から記録できます。</div>
+
+      <h2 class="section-title">MMT記録 <span id="mmtRecCount" class="count"></span></h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>日時</th><th>患者ID</th><th>髄節</th><th>筋</th><th>側</th><th>MMT</th><th>方法</th><th>メモ</th><th></th></tr>
+          </thead>
+          <tbody id="mmtRecTableBody"></tbody>
+        </table>
+      </div>
+      <div id="mmtRecEmpty" class="empty">まだMMT記録がありません。「MMT」タブから入力できます。</div>
 
       <h2 class="section-title">経過グラフ</h2>
       <div class="controls">
@@ -226,6 +281,28 @@
         </select>
       </label>
 
+      <h2 class="section-title">MMTの入力方法</h2>
+      <label class="chk"><input type="checkbox" id="setIsncsci">ISNCSCI準拠モード(0〜5の整数のみ・「+」「−」を使わない)</label>
+      <p class="note">
+        ASIA/ISCoSの評価として記録する場合に有効にしてください。有効時はUEMS/LEMS(各50点満点)の合計も表示します。
+        通常の整形外科診療で「4+」等の慣用表記を使う場合はオフのままで構いません。
+      </p>
+
+      <h2 class="section-title">音声入力</h2>
+      <label class="chk"><input type="checkbox" id="setVoice">音声入力を有効にする</label>
+      <p class="note" id="voiceLocalStatus"></p>
+      <p class="note warn">
+        <strong>ご注意:</strong> 音声認識はブラウザの標準機能(Web Speech API)を使います。
+        Chrome/Edge系では<strong>音声データが認識サーバーへ送信されて処理されます</strong>(端末内で完結しません)。
+        そのため本アプリでは音声で扱うのは<strong>部位・左右・数値のみ</strong>とし、
+        患者IDや氏名は画面で選択する設計にしています。<strong>声に出して患者情報を言わないでください。</strong>
+        この機能はオフライン(ネット未接続)では動作しません。
+      </p>
+      <div class="btn-row">
+        <button type="button" id="showVoiceNotice" class="btn">音声入力の注意事項を表示</button>
+      </div>
+      <ul class="sources" id="voiceSources"></ul>
+
       <h2 class="section-title">データの取り扱い</h2>
       <p class="note">
         記録・画像・映像はすべて<strong>この端末のブラウザ内だけ</strong>で処理・保存され、外部サーバへは一切送信されません。
@@ -235,7 +312,11 @@
       <div class="btn-row">
         <button type="button" id="showDisclaimer" class="btn">免責事項を表示</button>
       </div>
-      <p class="note version">ROMレコーダー v1.0 ・ 姿勢推定: MediaPipe Pose Landmarker (Apache-2.0) 同梱</p>
+      <h2 class="section-title">MMTの基準について</h2>
+      <p class="note" id="mmtSourceNote"></p>
+      <ul class="sources" id="mmtSources"></ul>
+
+      <p class="note version">ROMレコーダー v1.1 ・ 姿勢推定: MediaPipe Pose Landmarker (Apache-2.0) 同梱</p>
     </section>
   </main>
 
@@ -275,6 +356,10 @@
       <label>方法
         <input id="saveMethod" readonly tabindex="-1">
       </label>
+      <div class="btn-row">
+        <button type="button" id="saveVoiceBtn" class="btn btn-voice btn-sm">🎤 音声で入力(部位・左右・数値のみ)</button>
+      </div>
+      <p class="voice-echo" id="saveVoiceEcho"></p>
       <label>メモ
         <input id="saveMemo" autocomplete="off" placeholder="肢位・条件など(任意)">
       </label>
@@ -283,6 +368,33 @@
         <button type="button" id="saveCancel" class="btn">キャンセル</button>
       </div>
     </form>
+  </dialog>
+
+  <!-- MMTグレード選択 -->
+  <dialog id="mmtPicker">
+    <h2 id="mmtPickerTitle">MMT</h2>
+    <p class="note" id="mmtPickerAction"></p>
+    <div id="mmtPickerGrades" class="grade-list"></div>
+    <p class="note" id="mmtPickerNote"></p>
+    <div class="btn-row">
+      <button type="button" id="mmtPickerClear" class="btn btn-danger">未入力に戻す</button>
+      <button type="button" id="mmtPickerCancel" class="btn">キャンセル</button>
+    </div>
+  </dialog>
+
+  <!-- 音声入力の注意事項(初回の明示的な同意) -->
+  <dialog id="voiceDialog">
+    <h2>音声入力を使う前に</h2>
+    <ul class="disclaimer">
+      <li>音声認識はブラウザ標準機能(Web Speech API)を使用します。Chrome/Edge系では既定で<strong>音声データが認識サーバーへ送信されて処理されます</strong>(端末内で完結しません)。本アプリは端末内処理が使える環境では自動的にそちらを優先しますが、使えない環境ではサーバー処理になります。</li>
+      <li>そのため、<strong>患者IDや氏名を声に出さないでください</strong>。音声で扱うのは「部位・左右・数値」のみで、患者IDは画面で選択します。</li>
+      <li>認識結果は誤ることがあります。保存された値は<strong>必ず画面で確認</strong>してください。音声入力した記録には認識テキストがメモとして残ります。</li>
+      <li>この機能には<strong>インターネット接続が必要</strong>です(オフラインでは動作しません)。他の機能はオフラインで使えます。</li>
+    </ul>
+    <div class="btn-row">
+      <button type="button" id="voiceAck" class="btn btn-go">理解して有効にする</button>
+      <button type="button" id="voiceDecline" class="btn">使わない</button>
+    </div>
   </dialog>
 
   <!-- 初回免責 -->
@@ -316,10 +428,14 @@
 
   <script src="js/angle-core.js" defer></script>
   <script src="js/refs.js" defer></script>
+  <script src="js/mmt-defs.js" defer></script>
   <script src="js/store.js" defer></script>
   <script src="js/chart.js" defer></script>
   <script src="js/photo.js" defer></script>
   <script src="js/ai.js" defer></script>
+  <script src="js/voice-parse.js" defer></script>
+  <script src="js/voice.js" defer></script>
+  <script src="js/mmt.js" defer></script>
   <script src="js/app.js" defer></script>
 </body>
 </html>

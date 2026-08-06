@@ -11,7 +11,7 @@
 
   const $ = (id) => document.getElementById(id);
 
-  let liveCtl = null, vidCtl = null, photoCtl = null;
+  let liveCtl = null, vidCtl = null, photoCtl = null, mmtCtl = null;
   let recChart = null;
   let editingId = null;
 
@@ -20,7 +20,21 @@
     saveSettings: (patch) => Store.saveSettings(patch),
     toast, openSaveDialog, downloadText,
     refreshRecords,
+    stamp: () => stamp(),
+    ensureVoiceConsent,
+    showVoiceMode,
   };
+
+  // 音声認識が端末内処理かサーバー処理かを、利用者に分かるように表示する
+  function showVoiceMode(mode) {
+    const local = mode === "local";
+    const msg = local
+      ? "音声は端末内で処理されています(外部送信なし)"
+      : "音声は認識サーバーへ送信されて処理されます。患者情報は声に出さないでください";
+    $("voiceLocalStatus").textContent = (local ? "🔒 " : "☁️ ") + msg;
+    $("voiceLocalStatus").classList.toggle("warn", !local);
+    if (!local) toast("☁️ サーバー処理で認識中(患者情報は言わないでください)");
+  }
 
   // ---- 共通ユーティリティ ----
 
@@ -53,6 +67,8 @@
   const TAB_DEACTIVATE = {
     live: () => liveCtl && liveCtl.deactivate(),
     video: () => vidCtl && vidCtl.deactivate(),
+    mmt: () => mmtCtl && mmtCtl.deactivate(),
+    records: () => stopRecVoice(),
   };
   let currentTab = "live";
 
@@ -68,6 +84,33 @@
     });
     if (name === "records") refreshRecords();
     if (name === "photo" && photoCtl) photoCtl.redraw();
+    if (name === "mmt" && mmtCtl) mmtCtl.refresh();
+  }
+
+  // ---- 音声入力の同意 ----
+  // 音声データが外部の認識サーバへ送られ得るため、初回に必ず明示的な同意を取る。
+
+  function ensureVoiceConsent() {
+    return new Promise((resolve) => {
+      const s = Store.loadSettings();
+      if (s.voiceEnabled && s.voiceAck) { resolve(true); return; }
+      const dlg = $("voiceDialog");
+      const onAck = () => { cleanup(); Store.saveSettings({ voiceAck: true, voiceEnabled: true }); syncVoiceSetting(); resolve(true); };
+      const onNo = () => { cleanup(); resolve(false); };
+      function cleanup() {
+        $("voiceAck").removeEventListener("click", onAck);
+        $("voiceDecline").removeEventListener("click", onNo);
+        dlg.close();
+      }
+      $("voiceAck").addEventListener("click", onAck);
+      $("voiceDecline").addEventListener("click", onNo);
+      dlg.showModal();
+    });
+  }
+
+  function syncVoiceSetting() {
+    const s = Store.loadSettings();
+    $("setVoice").checked = !!(s.voiceEnabled && s.voiceAck);
   }
 
   // ---- 記録ダイアログ ----
@@ -210,7 +253,55 @@
       tr.appendChild(td);
       tbody.appendChild(tr);
     }
+    refreshMMTRecords();
     refreshProgress(records);
+  }
+
+  // ---- MMT記録一覧 ----
+
+  function refreshMMTRecords() {
+    const f = currentFilter();
+    const list = Store.loadMMT().filter((r) => !f.patient || r.patient === f.patient);
+    const tbody = $("mmtRecTableBody");
+    tbody.innerHTML = "";
+    $("mmtRecEmpty").style.display = list.length ? "none" : "";
+    $("mmtRecCount").textContent = list.length ? list.length + "件" : "";
+    const LIMIT = 200;
+    for (const r of list.slice(0, LIMIT)) {
+      const tr = document.createElement("tr");
+      const cells = [
+        Store.fmtDate(r.ts) + " " + Store.fmtTime(r.ts),
+        r.patient || "-", r.level, r.muscle, r.side,
+        Store.gradeText(r), r.method || "-", r.memo || "",
+      ];
+      for (const c of cells) {
+        const td = document.createElement("td");
+        td.textContent = c;
+        tr.appendChild(td);
+      }
+      const tdOps = document.createElement("td");
+      tdOps.className = "ops";
+      const del = document.createElement("button");
+      del.type = "button"; del.className = "icon-btn danger"; del.textContent = "🗑️"; del.title = "削除";
+      del.addEventListener("click", () => {
+        if (confirm("このMMT記録を削除しますか?\n" + cells[0] + " " + cells[1] + " " + r.side + r.level + " " + Store.gradeText(r))) {
+          Store.deleteMMT(r.id);
+          refreshRecords();
+          if (mmtCtl) mmtCtl.refresh();
+        }
+      });
+      tdOps.appendChild(del);
+      tr.appendChild(tdOps);
+      tbody.appendChild(tr);
+    }
+    if (list.length > LIMIT) {
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.colSpan = 9;
+      td.textContent = "…ほか " + (list.length - LIMIT) + " 件(MMT CSVで全件出力できます)";
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+    }
   }
 
   // ---- 経過グラフ ----
@@ -298,10 +389,9 @@
     }
   }
 
-  function renderRefSources() {
-    const ul = $("refSources");
+  function renderSourceList(ul, sources) {
     ul.innerHTML = "";
-    for (const s of Refs.REF_SOURCES) {
+    for (const s of sources) {
       const li = document.createElement("li");
       const a = document.createElement("a");
       a.href = s.url;
@@ -311,6 +401,18 @@
       li.appendChild(a);
       ul.appendChild(li);
     }
+  }
+
+  function renderRefSources() {
+    renderSourceList($("refSources"), Refs.REF_SOURCES);
+  }
+
+  function renderMMTInfo() {
+    const D = global.MMTDefs;
+    $("mmtDefsNote").textContent = D.SCALE_NOTE;
+    $("mmtSourceNote").textContent = D.SOURCE_NOTE;
+    renderSourceList($("mmtSources"), D.SOURCES);
+    renderSourceList($("voiceSources"), D.VOICE_SOURCES);
   }
 
   function prefillRefs() {
@@ -353,26 +455,112 @@
           if (!confirm("現在の記録をすべて置き換えます。よろしいですか?")) return;
           result = Store.importJSON(text, "replace");
         }
-        toast("復元しました(計 " + result.total + " 件)");
+        toast("復元しました(角度 " + result.total + "件 / MMT " + result.mmtTotal + "件)");
         refreshRecords();
         renderRefTable();
+        if (mmtCtl) mmtCtl.refresh();
       } catch (e) {
         alert("復元に失敗しました: " + e.message);
       }
     });
     $("recClearAll").addEventListener("click", () => {
       const n = Store.loadRecords().length;
-      if (!n) { toast("記録はありません"); return; }
-      if (!confirm("全 " + n + " 件の記録を削除します。よろしいですか?")) return;
+      const m = Store.loadMMT().length;
+      if (!n && !m) { toast("記録はありません"); return; }
+      if (!confirm("角度 " + n + "件・MMT " + m + "件をすべて削除します。よろしいですか?")) return;
       if (!confirm("最終確認: 削除すると元に戻せません。先にバックアップ(JSON)を取ることを推奨します。削除しますか?")) return;
       for (const r of Store.loadRecords()) Store.deleteRecord(r.id);
+      for (const r of Store.loadMMT()) Store.deleteMMT(r.id);
       refreshRecords();
+      if (mmtCtl) mmtCtl.refresh();
       toast("すべての記録を削除しました");
     });
     $("recFilterPatient").addEventListener("change", refreshRecords);
     $("recFilterJoint").addEventListener("change", refreshRecords);
     $("progPatient").addEventListener("change", () => refreshProgress(Store.loadRecords()));
     $("progSeries").addEventListener("change", () => refreshProgress(Store.loadRecords()));
+  }
+
+  // ---- 角度の音声入力 ----
+  // 認識できたら記録ダイアログに流し込み、保存は医師の確認(1タップ)で行う。
+  // 患者IDは音声では扱わず、記録タブのフィルタで選択中の患者を初期値にする。
+
+  let recRecognizer = null;
+  let saveRecognizer = null;
+
+  function stopRecVoice() {
+    if (recRecognizer && recRecognizer.isRunning()) recRecognizer.stop();
+  }
+
+  function setVoiceBtnUI(btn, on, labelOff) {
+    btn.classList.toggle("armed", on);
+    btn.textContent = on ? "🎤 停止" : labelOff;
+  }
+
+  async function startRecVoice() {
+    if (recRecognizer && recRecognizer.isRunning()) { stopRecVoice(); return; }
+    if (!(await ensureVoiceConsent())) return;
+    if (!global.Voice.isSupported()) {
+      toast("このブラウザは音声入力に対応していません(Chrome/Edge/Safariをお試しください)");
+      return;
+    }
+    if (!recRecognizer) {
+      recRecognizer = global.Voice.createRecognizer({
+        lang: "ja-JP",
+        onStart: () => setVoiceBtnUI($("recVoiceBtn"), true, "🎤 音声で角度を記録"),
+        onEnd: () => setVoiceBtnUI($("recVoiceBtn"), false, "🎤 音声で角度を記録"),
+        onMode: (mode) => showVoiceMode(mode),
+        onError: (_k, msg) => toast(msg),
+        onResult: (text, isFinal) => {
+          if (!isFinal) return;
+          const parsed = global.VoiceParse.parseROM(text);
+          if (!parsed) { toast("解釈できません: 「" + text + "」 例: 「膝 屈曲 右 120」"); return; }
+          stopRecVoice();
+          openSaveDialog({
+            patient: $("recFilterPatient").value || "",
+            joint: parsed.joint,
+            motion: parsed.motion,
+            side: parsed.side,
+            angle: parsed.angle,
+            method: "音声",
+            memo: "音声認識: " + parsed.transcript,
+          });
+        },
+      });
+    }
+    recRecognizer.start();
+  }
+
+  async function startSaveVoice() {
+    if (saveRecognizer && saveRecognizer.isRunning()) { saveRecognizer.stop(); return; }
+    if (!(await ensureVoiceConsent())) return;
+    if (!global.Voice.isSupported()) {
+      toast("このブラウザは音声入力に対応していません");
+      return;
+    }
+    if (!saveRecognizer) {
+      saveRecognizer = global.Voice.createRecognizer({
+        lang: "ja-JP",
+        onStart: () => setVoiceBtnUI($("saveVoiceBtn"), true, "🎤 音声で入力(部位・左右・数値のみ)"),
+        onEnd: () => setVoiceBtnUI($("saveVoiceBtn"), false, "🎤 音声で入力(部位・左右・数値のみ)"),
+        onMode: (mode) => showVoiceMode(mode),
+        onError: (_k, msg) => { $("saveVoiceEcho").textContent = msg; },
+        onResult: (text, isFinal) => {
+          $("saveVoiceEcho").textContent = (isFinal ? "" : "…") + text;
+          if (!isFinal) return;
+          const parsed = global.VoiceParse.parseROM(text);
+          if (!parsed) { $("saveVoiceEcho").textContent = "解釈できません: 「" + text + "」 例: 「膝 屈曲 右 120」"; return; }
+          if (parsed.joint) $("saveJoint").value = parsed.joint;
+          if (parsed.motion) $("saveMotion").value = parsed.motion;
+          if (parsed.side) $("saveSide").value = parsed.side;
+          $("saveAngle").value = parsed.angle;
+          $("saveMethod").value = "音声";
+          $("saveMemo").value = "音声認識: " + parsed.transcript;
+          $("saveVoiceEcho").textContent = "✓ " + (parsed.side || "") + parsed.joint + parsed.motion + " " + parsed.angle + "°";
+        },
+      });
+    }
+    saveRecognizer.start();
   }
 
   // ---- 初回免責 ----
@@ -392,6 +580,32 @@
 
     $("saveForm").addEventListener("submit", submitSave);
     $("saveCancel").addEventListener("click", () => { editingId = null; $("saveDialog").close(); });
+    $("saveDialog").addEventListener("close", () => {
+      if (saveRecognizer && saveRecognizer.isRunning()) saveRecognizer.stop();
+      $("saveVoiceEcho").textContent = "";
+    });
+    $("saveVoiceBtn").addEventListener("click", startSaveVoice);
+    $("recVoiceBtn").addEventListener("click", startRecVoice);
+
+    $("setVoice").addEventListener("change", async () => {
+      if ($("setVoice").checked) {
+        const ok = await ensureVoiceConsent();
+        if (!ok) $("setVoice").checked = false;
+      } else {
+        Store.saveSettings({ voiceEnabled: false });
+      }
+    });
+    $("showVoiceNotice").addEventListener("click", () => $("voiceDialog").showModal());
+
+    const isncsciChk = $("setIsncsci");
+    isncsciChk.checked = !!Store.loadSettings().isncsciMode;
+    isncsciChk.addEventListener("change", () => {
+      Store.saveSettings({ isncsciMode: isncsciChk.checked });
+      if (mmtCtl) mmtCtl.refresh();
+      toast(isncsciChk.checked
+        ? "ISNCSCI準拠モード: 0〜5の整数のみで採点します"
+        : "通常モード: 「+」「−」の中間表記も使えます");
+    });
 
     $("discAck").addEventListener("click", () => {
       Store.saveSettings({ disclaimerAck: true });
@@ -413,9 +627,12 @@
     photoCtl = global.PhotoMeasure.init(App);
     liveCtl = global.AiLive.init(App);
     vidCtl = global.AiVideo.init(App);
+    mmtCtl = global.MMT.init(App);
 
     renderRefTable();
     renderRefSources();
+    renderMMTInfo();
+    syncVoiceSetting();
     wireDataOps();
     refreshRecords();
     maybeShowDisclaimer();

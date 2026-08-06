@@ -7,6 +7,7 @@
   "use strict";
 
   const REC_KEY = "romrec.records.v1";
+  const MMT_KEY = "romrec.mmt.v1";
   const SET_KEY = "romrec.settings.v1";
 
   const DEFAULT_SETTINGS = {
@@ -14,6 +15,9 @@
     mirror: false, // 既定は背面カメラ想定。前面カメラ選択時はUI側で自動ON
     modelVariant: "lite",
     disclaimerAck: false,
+    voiceEnabled: false, // 音声入力は明示的にオンにしたときだけ使う(外部送信の注意があるため)
+    voiceAck: false,     // 音声入力の注意事項に同意済みか
+    isncsciMode: false,  // ISNCSCI準拠(0〜5整数のみ、+/-を使わない)
     refValues: {}, // refKey -> 参考可動域(ユーザー編集可)
   };
 
@@ -98,7 +102,92 @@
   function listPatients() {
     const set = new Set();
     for (const r of loadRecords()) if (r.patient) set.add(r.patient);
+    for (const r of loadMMT()) if (r.patient) set.add(r.patient);
     return Array.from(set).sort();
+  }
+
+  // ---- MMT(徒手筋力テスト)記録 ----
+  // grade は 0〜5 の整数、modifier は "" / "+" / "-"。
+  // 音声入力時は memo に認識テキストをそのまま残し、後から検証できるようにする。
+
+  function sanitizeMMT(r) {
+    if (!r || typeof r !== "object") return null;
+    const grade = Number(r.grade);
+    if (!Number.isInteger(grade) || grade < 0 || grade > 5) return null;
+    const side = String(r.side ?? "").trim();
+    if (side !== "右" && side !== "左") return null; // 側が確定しない記録は保存しない
+    const mod = String(r.modifier ?? "").trim();
+    return {
+      id: typeof r.id === "string" && r.id ? r.id : genId(),
+      ts: typeof r.ts === "string" && !isNaN(Date.parse(r.ts)) ? r.ts : new Date().toISOString(),
+      patient: String(r.patient ?? "").trim(),
+      level: String(r.level ?? "").trim(),
+      muscle: String(r.muscle ?? "").trim(),
+      side,
+      grade,
+      modifier: (mod === "+" || mod === "-") ? mod : "",
+      method: String(r.method ?? "").trim(),
+      memo: String(r.memo ?? "").trim(),
+    };
+  }
+
+  function loadMMT() {
+    const arr = parseJSON(storage().getItem(MMT_KEY), []);
+    if (!Array.isArray(arr)) return [];
+    return arr.map(sanitizeMMT).filter(Boolean);
+  }
+
+  function persistMMT(list) {
+    storage().setItem(MMT_KEY, JSON.stringify(list));
+  }
+
+  function addMMT(partial) {
+    const rec = sanitizeMMT(partial);
+    if (!rec) return null;
+    const list = loadMMT();
+    list.unshift(rec);
+    list.sort((a, b) => Date.parse(b.ts) - Date.parse(a.ts));
+    persistMMT(list);
+    return rec;
+  }
+
+  // 同一診察(同じ患者・髄節・側)の値を上書きするか新規追加するか:
+  // 画面上のグリッド編集では sessionTs を渡して同一セッション内の重複を防ぐ
+  function upsertMMT(partial, sessionTs) {
+    if (!sessionTs) return addMMT(partial);
+    const list = loadMMT();
+    const i = list.findIndex((r) =>
+      r.ts === sessionTs && r.patient === String(partial.patient ?? "").trim() &&
+      r.level === String(partial.level ?? "").trim() && r.side === partial.side
+    );
+    const rec = sanitizeMMT(Object.assign({}, partial, { ts: sessionTs, id: i >= 0 ? list[i].id : undefined }));
+    if (!rec) return null;
+    if (i >= 0) list[i] = rec; else list.unshift(rec);
+    list.sort((a, b) => Date.parse(b.ts) - Date.parse(a.ts));
+    persistMMT(list);
+    return rec;
+  }
+
+  function updateMMT(id, patch) {
+    const list = loadMMT();
+    const i = list.findIndex((r) => r.id === id);
+    if (i < 0) return null;
+    const merged = sanitizeMMT(Object.assign({}, list[i], patch, { id }));
+    if (!merged) return null;
+    list[i] = merged;
+    persistMMT(list);
+    return merged;
+  }
+
+  function deleteMMT(id) {
+    const list = loadMMT();
+    const next = list.filter((r) => r.id !== id);
+    persistMMT(next);
+    return list.length !== next.length;
+  }
+
+  function gradeText(r) {
+    return String(r.grade) + (r.modifier || "");
   }
 
   // ---- 設定 ----
@@ -150,12 +239,23 @@
     return "﻿時間(秒),角度(度)\r\n" + (rows.length ? rows.join("\r\n") + "\r\n" : "");
   }
 
+  const MMT_HEADERS = ["日付", "時刻", "患者ID", "髄節", "筋", "側", "MMT", "方法", "メモ"];
+
+  function mmtToCSV(list) {
+    const rows = list.map((r) =>
+      [fmtDate(r.ts), fmtTime(r.ts), r.patient, r.level, r.muscle, r.side, gradeText(r), r.method, r.memo]
+        .map(csvEscape).join(",")
+    );
+    return "﻿" + MMT_HEADERS.join(",") + "\r\n" + (rows.length ? rows.join("\r\n") + "\r\n" : "");
+  }
+
   function exportJSON() {
     return JSON.stringify({
       app: "rom-recorder",
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
       records: loadRecords(),
+      mmt: loadMMT(),
       settings: loadSettings(),
     }, null, 2);
   }
@@ -177,15 +277,34 @@
     }
     records.sort((a, b) => Date.parse(b.ts) - Date.parse(a.ts));
     persistRecords(records);
-    if (data.settings && typeof data.settings === "object") {
-      saveSettings(Object.assign({}, data.settings, { disclaimerAck: loadSettings().disclaimerAck }));
+
+    // MMTは version 2 以降に含まれる(古いバックアップには存在しない)
+    const incomingMMT = Array.isArray(data.mmt) ? data.mmt.map(sanitizeMMT).filter(Boolean) : [];
+    let mmt;
+    if (mode === "replace") {
+      mmt = incomingMMT;
+    } else {
+      mmt = loadMMT();
+      const knownM = new Set(mmt.map((r) => r.id));
+      for (const r of incomingMMT) if (!knownM.has(r.id)) mmt.push(r);
     }
-    return { added: incoming.length, total: records.length };
+    mmt.sort((a, b) => Date.parse(b.ts) - Date.parse(a.ts));
+    persistMMT(mmt);
+
+    if (data.settings && typeof data.settings === "object") {
+      const cur = loadSettings();
+      saveSettings(Object.assign({}, data.settings, {
+        disclaimerAck: cur.disclaimerAck,
+        voiceAck: cur.voiceAck, // 同意状態は端末ごとの判断なので引き継がない
+      }));
+    }
+    return { added: incoming.length, total: records.length, mmtAdded: incomingMMT.length, mmtTotal: mmt.length };
   }
 
   const api = {
-    DEFAULT_SETTINGS, CSV_HEADERS,
+    DEFAULT_SETTINGS, CSV_HEADERS, MMT_HEADERS,
     loadRecords, addRecord, updateRecord, deleteRecord, listPatients,
+    loadMMT, addMMT, upsertMMT, updateMMT, deleteMMT, sanitizeMMT, gradeText, mmtToCSV,
     loadSettings, saveSettings,
     fmtDate, fmtTime, csvEscape, recordsToCSV, seriesToCSV,
     exportJSON, importJSON, sanitizeRecord,

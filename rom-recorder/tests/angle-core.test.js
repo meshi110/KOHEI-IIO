@@ -164,8 +164,101 @@ ok("importJSON: merge重複除外 / replace / 形式検証", () => {
 ok("settings: 既定値・保存・refValues", () => {
   const s = Store.loadSettings();
   assert.strictEqual(s.modelVariant, "lite");
+  assert.strictEqual(s.voiceEnabled, false, "音声入力は既定オフ");
+  assert.strictEqual(s.voiceAck, false);
   Store.saveSettings({ refValues: { knee_flexion: 130 } });
   assert.strictEqual(Store.loadSettings().refValues.knee_flexion, 130);
+});
+
+console.log("store(MMT):");
+
+ok("addMMT → loadMMT 往復", () => {
+  const rec = Store.addMMT({ patient: "A-01", level: "L4", muscle: "前脛骨筋", side: "右", grade: 4, modifier: "+", method: "音声", memo: "音声認識: 右 L4 4プラス" });
+  assert.ok(rec && rec.id);
+  const list = Store.loadMMT();
+  assert.strictEqual(list.length, 1);
+  assert.strictEqual(list[0].grade, 4);
+  assert.strictEqual(list[0].modifier, "+");
+  assert.strictEqual(Store.gradeText(list[0]), "4+");
+});
+
+ok("MMT: 側が右/左でない記録は保存しない", () => {
+  const before = Store.loadMMT().length;
+  assert.strictEqual(Store.addMMT({ patient: "A-01", level: "L4", side: "", grade: 4 }), null);
+  assert.strictEqual(Store.addMMT({ patient: "A-01", level: "L4", side: "両側", grade: 4 }), null);
+  assert.strictEqual(Store.loadMMT().length, before);
+});
+
+ok("MMT: グレードは0〜5の整数のみ", () => {
+  const before = Store.loadMMT().length;
+  assert.strictEqual(Store.addMMT({ level: "L4", side: "右", grade: 6 }), null);
+  assert.strictEqual(Store.addMMT({ level: "L4", side: "右", grade: -1 }), null);
+  assert.strictEqual(Store.addMMT({ level: "L4", side: "右", grade: 3.5 }), null);
+  assert.strictEqual(Store.addMMT({ level: "L4", side: "右", grade: "abc" }), null);
+  assert.strictEqual(Store.loadMMT().length, before);
+  const okRec = Store.addMMT({ level: "L4", side: "右", grade: 0 });
+  assert.ok(okRec, "0は有効なグレード");
+  Store.deleteMMT(okRec.id);
+});
+
+ok("MMT: 不正なmodifierは空に正規化", () => {
+  const r = Store.addMMT({ level: "C5", side: "左", grade: 3, modifier: "*" });
+  assert.strictEqual(r.modifier, "");
+  Store.deleteMMT(r.id);
+});
+
+ok("upsertMMT: 同一診察・同一髄節・同一側は上書き(言い直し対応)", () => {
+  const ts = new Date("2026-08-06T10:00:00Z").toISOString();
+  const a = Store.upsertMMT({ patient: "B-01", level: "L5", muscle: "長母趾伸筋", side: "左", grade: 3 }, ts);
+  const b = Store.upsertMMT({ patient: "B-01", level: "L5", muscle: "長母趾伸筋", side: "左", grade: 4 }, ts);
+  assert.strictEqual(a.id, b.id, "同じ記録が更新される");
+  const list = Store.loadMMT().filter((r) => r.patient === "B-01");
+  assert.strictEqual(list.length, 1, "重複して増えない");
+  assert.strictEqual(list[0].grade, 4);
+});
+
+ok("upsertMMT: 側が違えば別記録", () => {
+  const ts = new Date("2026-08-06T10:00:00Z").toISOString();
+  Store.upsertMMT({ patient: "B-01", level: "L5", side: "右", grade: 5 }, ts);
+  const list = Store.loadMMT().filter((r) => r.patient === "B-01");
+  assert.strictEqual(list.length, 2);
+});
+
+ok("listPatients: 角度記録とMMT記録の両方から集約", () => {
+  const ps = Store.listPatients();
+  assert.ok(ps.includes("A-01"), "角度記録の患者");
+  assert.ok(ps.includes("B-01"), "MMT記録のみの患者");
+});
+
+ok("mmtToCSV: BOM・ヘッダ・グレード表記", () => {
+  const csv = Store.mmtToCSV(Store.loadMMT());
+  assert.strictEqual(csv.charCodeAt(0), 0xfeff);
+  assert.ok(csv.includes("日付,時刻,患者ID,髄節,筋,側,MMT,方法,メモ"));
+  assert.ok(csv.includes("4+"), "modifier付きグレードが出力される");
+});
+
+ok("JSON: MMTを含めて往復し、重複追加しない", () => {
+  const beforeMMT = Store.loadMMT().length;
+  const dump = Store.exportJSON();
+  assert.ok(JSON.parse(dump).mmt.length === beforeMMT);
+  const r = Store.importJSON(dump, "merge");
+  assert.strictEqual(r.mmtTotal, beforeMMT, "同一idはmergeで増えない");
+  const r2 = Store.importJSON(dump, "replace");
+  assert.strictEqual(r2.mmtTotal, beforeMMT);
+});
+
+ok("JSON: MMTを含まない旧バックアップも読める", () => {
+  const old = JSON.stringify({ app: "rom-recorder", version: 1, records: [], settings: {} });
+  const r = Store.importJSON(old, "merge");
+  assert.strictEqual(r.mmtAdded, 0);
+});
+
+ok("deleteMMT", () => {
+  const list = Store.loadMMT();
+  const n = list.length;
+  assert.strictEqual(Store.deleteMMT(list[0].id), true);
+  assert.strictEqual(Store.loadMMT().length, n - 1);
+  assert.strictEqual(Store.deleteMMT("no-such-id"), false);
 });
 
 console.log("\n" + passed + " tests passed");
