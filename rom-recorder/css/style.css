@@ -711,3 +711,32 @@ dialog input[readonly] { opacity: 0.7; }
 .his-head { font-size: 14px; font-weight: 600; line-height: 1.6; }
 
 td.raw { color: var(--ink-muted); font-size: 12px; }
+
+/* ---- 肩検査: 片手/両手・撮影方向・代償 ---- */
+
+.sh-table td { white-space: nowrap; vertical-align: top; }
+.sh-table td .sh-cell { display: flex; }
+
+.sh-view { color: var(--ink-muted); font-size: 12px; margin-left: 4px; }
+
+.sh-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-muted);
+  background: var(--surface2);
+  border-radius: 999px;
+  padding: 2px 7px;
+}
+
+.sh-val { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.sh-warn {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+
+.sh-missing { color: var(--danger); }

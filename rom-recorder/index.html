@@ -128,6 +128,13 @@
             </div>
           </div>
         </span>
+        <label class="ctl" id="vidShViewWrap" hidden>撮影方向
+          <select id="vidShView">
+            <option value="auto" selected>自動判定</option>
+            <option value="front">正面(前額面)</option>
+            <option value="side">側面(矢状面)</option>
+          </select>
+        </label>
         <label class="ctl">解析速度
           <select id="vidRate">
             <option value="0.25">0.25×(高密度)</option>
@@ -154,25 +161,39 @@
       <p class="note">グラフをタップするとその時点へ動画がシークします。歩行・立ち上がりなどの動作解析にどうぞ。</p>
 
       <div id="shoulderGuide" class="guide" hidden>
-        <strong>肩検査の撮影手順(ご家族が正面から・全身・明るい場所で)</strong>
+        <strong>肩検査の撮影手順(ご家族が撮影・全身・明るい場所で)</strong>
+        <p class="note">単眼カメラの3D推定は<strong>奥行き方向の誤差が大きい</strong>ため、計測面がカメラに正対している向きでしか信用できません。
+          そのため<strong>正面・右側面・左側面の3本</strong>に分けて撮り、順に解析します(結果は1枚のシートに積み上がります)。
+          側面では反対側の腕が体に隠れるので、左右それぞれ必要です。</p>
+
+        <strong>① 正面から(外転・1st外旋・2nd内外旋)</strong>
         <ol>
           <li>気をつけ姿勢で2秒静止</li>
-          <li>両腕を<strong>前から</strong>真上へ挙上 → ゆっくり戻す(挙上)</li>
-          <li>両腕を<strong>横から</strong>真上へ → 戻す(外転)</li>
-          <li>両腕を後方へ引く(伸展)</li>
-          <li>両肘を90°に曲げ脇を締めたまま、前腕を外へ開く(1st外旋)</li>
-          <li>両腕を横に90°上げ肘90°で、前腕を上へ/下へ倒す(2nd外旋・内旋)</li>
-          <li>両腕を前に90°上げ肘90°で、前腕を外へ/内へ倒す(3rd外旋・内旋)</li>
+          <li><strong>両腕同時</strong>に横から真上へ挙げる → 戻す(外転)</li>
+          <li>続けて<strong>右だけ</strong>、次に<strong>左だけ</strong>で同じ動作</li>
+          <li>両肘を90°に曲げ脇を締めたまま前腕を外へ開く(1st外旋) — 両手 → 右 → 左</li>
+          <li>腕を横に90°上げ肘90°で、前腕を上へ/下へ倒す(2nd外旋・内旋) — 両手 → 右 → 左</li>
         </ol>
-        <p class="note">各動作は2回ゆっくり。両腕同時でかまいません。解析中に部位を選ぶ操作は不要で、
-          すべての項目が動画から自動抽出されます。1st内旋(結帯・母指がどの脊椎レベルに届くか)は
-          カメラでは測定できないため、結果欄で選択して一緒に記録します。</p>
+
+        <strong>② 右側面から / ③ 左側面から(挙上・伸展)</strong>
+        <ol>
+          <li>カメラに近い側の腕を、前から真上へ挙げる → 戻す(挙上)</li>
+          <li>同じ腕を後方へ引く(伸展)</li>
+        </ol>
+
+        <p class="note">各動作はゆっくり2回。撮影方向は自動判定しますが、上の「撮影方向」で明示指定もできます。
+          <strong>両手同時と片手の値は別々に集計</strong>され、結果欄に並べて表示されます
+          (両手だと健側が引っ張られる・体幹で代償することがあるため。既定では片手の値にチェックが入ります)。
+          計測時に体幹が10°以上傾いていた場合は「体幹◯°」と警告が付きます。
+          1st内旋(結帯・母指がどの脊椎レベルに届くか)はカメラでは測定できないため、結果欄で選択して一緒に記録します。</p>
       </div>
 
       <section id="shoulderResults" hidden>
-        <h2 class="section-title">肩検査 結果(両側自動抽出)</h2>
+        <h2 class="section-title">肩検査 結果(3方向の解析を積み上げ)</h2>
         <p class="note">単眼カメラの3D推定による<strong>目安</strong>です。時刻ボタンをタップすると動画の該当場面へ移動して確認できます。
+          項目名の括弧はその値を採用できる撮影方向、「片手/両手」は動作条件です。
           採用する項目だけチェックを残して記録してください。3rd回旋の0°基準は「前腕垂直下向き」(暫定・要確認)です。</p>
+        <ul class="sources" id="shSources"></ul>
         <div class="table-wrap">
           <table class="sh-table">
             <thead><tr><th>項目</th><th>右</th><th>左</th></tr></thead>
@@ -190,8 +211,9 @@
             <input id="shPatient" list="patientList" autocomplete="off" placeholder="例: A-012">
           </label>
         </div>
-        <div class="btn-row">
+        <div class="btn-row wrap">
           <button type="button" id="shSaveAll" class="btn btn-go">チェックした項目をまとめて記録</button>
+          <button type="button" id="shClear" class="btn btn-danger">解析結果をクリア</button>
         </div>
       </section>
     </section>

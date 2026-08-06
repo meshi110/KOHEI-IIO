@@ -628,6 +628,8 @@
       const singleCtls = document.getElementById("vidSingleCtls");
       const guideEl = document.getElementById("shoulderGuide");
       const shResultsEl = document.getElementById("shoulderResults");
+      const shViewSel = document.getElementById("vidShView");
+      const shViewWrap = document.getElementById("vidShViewWrap");
       let mode = "single";
       let shSession = null;
 
@@ -637,6 +639,7 @@
         modeShoulderBtn.classList.toggle("active", m === "shoulder");
         singleCtls.classList.toggle("hide", m === "shoulder");
         guideEl.hidden = m !== "shoulder";
+        if (shViewWrap) shViewWrap.hidden = m !== "shoulder";
         chartCanvas.style.display = m === "shoulder" ? "none" : "";
         csvBtn.style.display = m === "shoulder" ? "none" : "";
         if (m === "single") shResultsEl.hidden = true;
@@ -681,8 +684,8 @@
         statsEl.textContent = "";
         resultEl.innerHTML = "";
         csvBtn.disabled = true;
-        shResultsEl.hidden = true;
         shSession = null;
+        video.dataset.name = f.name || "動画";
         status("動画を読み込みました。「解析開始」で先頭から解析します");
       });
 
@@ -696,8 +699,9 @@
         statsEl.textContent = "";
         resultEl.innerHTML = "";
         csvBtn.disabled = true;
-        shResultsEl.hidden = true;
-        shSession = (mode === "shoulder" && global.ShoulderExam) ? global.ShoulderExam.createSession() : null;
+        shSession = (mode === "shoulder" && global.ShoulderExam)
+          ? global.ShoulderExam.createSession({ view: shViewSel ? shViewSel.value : "auto" })
+          : null;
         try {
           status("AIモデルを読み込み中…");
           // タイムスタンプ管理をリセットするため毎回作り直す
@@ -777,9 +781,15 @@
             return;
           }
           const res = shSession.finalize();
-          status("解析終了: " + res.frames + "フレーム");
-          statsEl.textContent = "結果を下に表示しました。時刻ボタンで動画の該当場面を確認できます";
-          if (global.ShoulderUI) global.ShoulderUI.render(res);
+          const vlabel = res.view === "front" ? "正面" : (res.view === "side" ? "側面" : "判定不能");
+          const nlabel = (res.view === "side" && res.nearSide) ? "(" + (res.nearSide === "right" ? "右" : "左") + "側)" : "";
+          status("解析終了: " + res.frames + "フレーム / 撮影方向 " + vlabel + nlabel);
+          const added = global.ShoulderUI
+            ? global.ShoulderUI.merge(res, (video.dataset.name || "動画") + " " + vlabel + nlabel)
+            : 0;
+          statsEl.textContent = added
+            ? added + "項目を取り込みました。時刻ボタンで動画の該当場面を確認できます"
+            : "この向きから採用できる項目がありませんでした(全身が正面/側面から映っているか確認してください)";
           return;
         }
         if (!series.length) {
