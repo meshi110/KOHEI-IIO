@@ -324,6 +324,16 @@
             </svg>
             過去の記録を追加
         </button>
+
+        <!-- NotebookLMエクスポートボタン -->
+        <button class="btn btn-secondary" onclick="exportMarkdown()">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            NotebookLM用にエクスポート (Markdown)
+        </button>
         
         <!-- 追加フォーム -->
         <div id="addForm" class="form-panel hidden">
@@ -491,6 +501,101 @@
             updateUI();
         }
         
+        // Markdownエクスポート (NotebookLM向け)
+        function exportMarkdown() {
+            if (records.length === 0 && !currentSession) {
+                alert('エクスポートする記録がありません');
+                return;
+            }
+
+            const now = new Date();
+            const pad = n => String(n).padStart(2, '0');
+            const timestamp = `${now.getFullYear()}/${pad(now.getMonth() + 1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+            // 完了した記録のみ集計対象
+            const completed = records.filter(r => r.endTime);
+            const totalMs = completed.reduce((sum, r) => sum + (new Date(r.endTime) - new Date(r.startTime)), 0);
+            const totalHours = Math.floor(totalMs / (1000 * 60 * 60));
+            const totalMinutes = Math.floor((totalMs % (1000 * 60 * 60)) / (1000 * 60));
+            const avgMs = completed.length ? Math.floor(totalMs / completed.length) : 0;
+            const avgHours = Math.floor(avgMs / (1000 * 60 * 60));
+            const avgMinutes = Math.floor((avgMs % (1000 * 60 * 60)) / (1000 * 60));
+
+            // 月別集計
+            const monthMap = {};
+            completed.forEach(r => {
+                const d = new Date(r.startTime);
+                const key = `${d.getFullYear()}/${pad(d.getMonth() + 1)}`;
+                if (!monthMap[key]) monthMap[key] = { days: new Set(), ms: 0 };
+                monthMap[key].days.add(d.toDateString());
+                monthMap[key].ms += new Date(r.endTime) - new Date(r.startTime);
+            });
+            const monthKeys = Object.keys(monthMap).sort().reverse();
+
+            let md = `# 勤務記録\n\n`;
+            md += `生成日時: ${timestamp}\n\n`;
+            md += `## サマリー\n\n`;
+            md += `- 総記録数: ${completed.length}件\n`;
+            md += `- 総勤務時間: ${totalHours}時間${totalMinutes}分\n`;
+            md += `- 1回あたり平均: ${avgHours}時間${avgMinutes}分\n`;
+            if (currentSession) {
+                md += `- 現在勤務中: ${formatTime(currentSession.startTime)} 〜\n`;
+            }
+            md += `\n## 月別集計\n\n`;
+            md += `| 年月 | 勤務日数 | 合計時間 |\n|---|---|---|\n`;
+            monthKeys.forEach(key => {
+                const m = monthMap[key];
+                const h = Math.floor(m.ms / (1000 * 60 * 60));
+                const min = Math.floor((m.ms % (1000 * 60 * 60)) / (1000 * 60));
+                md += `| ${key} | ${m.days.size}日 | ${h}時間${min}分 |\n`;
+            });
+
+            // 月ごとに記録を分類
+            const recordsByMonth = {};
+            records.forEach(r => {
+                const d = new Date(r.startTime);
+                const key = `${d.getFullYear()}年${d.getMonth() + 1}月`;
+                if (!recordsByMonth[key]) recordsByMonth[key] = [];
+                recordsByMonth[key].push(r);
+            });
+
+            md += `\n## 勤務記録一覧\n`;
+            Object.keys(recordsByMonth).forEach(monthLabel => {
+                md += `\n### ${monthLabel}\n\n`;
+                md += `| 日付 | 開始 | 終了 | 勤務時間 |\n|---|---|---|---|\n`;
+                recordsByMonth[monthLabel].forEach(r => {
+                    const date = formatDate(r.startTime);
+                    const start = formatTime(r.startTime);
+                    const end = r.endTime ? formatTime(r.endTime) : '勤務中';
+                    const duration = calculateDuration(r.startTime, r.endTime);
+                    md += `| ${date} | ${start} | ${end} | ${duration} |\n`;
+                });
+            });
+
+            // ダウンロード
+            const fileName = `勤務記録_${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}.md`;
+            const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            // クリップボードにもコピー (失敗しても無視)
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(md).then(() => {
+                    alert(`Markdownファイルをダウンロードしました\nクリップボードにもコピー済みです\n\nNotebookLMで「ソースを追加」→ファイルアップロード or テキスト貼り付けで使えます`);
+                }).catch(() => {
+                    alert(`Markdownファイルをダウンロードしました\n\nNotebookLMで「ソースを追加」→ファイルアップロードで使えます`);
+                });
+            } else {
+                alert(`Markdownファイルをダウンロードしました\n\nNotebookLMで「ソースを追加」→ファイルアップロードで使えます`);
+            }
+        }
+
         // 記録削除
         function handleDelete(id) {
             if (confirm('この記録を削除しますか？')) {
