@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>つなぎDXの方向性 ― ローカル1台で安全に、Gemini/Claude を使いこなす</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
+  :root{
+    --ink:#243042;--muted:#5b6b7e;--line:#dfe6ee;--paper:#f4f7fa;
+    --blue:#1466b0;--blue-soft:#e9f2fb;
+    --teal:#0e9384;--teal-soft:#dff5f1;
+    --green:#1a9b54;--green-soft:#e3f6ec;
+    --amber:#c9760a;--amber-soft:#fdf1df;
+    --purple:#7c3aed;--purple-soft:#f2ebfa;
+    --rose:#d23f57;--rose-soft:#fdeaed;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:'Noto Sans JP',"Hiragino Sans","Yu Gothic",sans-serif;
+    color:var(--ink);background:var(--paper);line-height:1.8;font-size:13px;
+    -webkit-print-color-adjust:exact;print-color-adjust:exact;
+  }
+  .wrap{max-width:920px;margin:22px auto;padding:0 16px;}
+
+  .hero{
+    background:linear-gradient(135deg,#5b21b6,#0e9384);color:#fff;
+    border-radius:16px;padding:28px 32px;box-shadow:0 8px 26px rgba(91,33,182,.2);
+    position:relative;overflow:hidden;
+  }
+  .hero::after{content:'';position:absolute;right:-40px;bottom:-60px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.08);}
+  .hero .eb{font-size:11px;letter-spacing:.2em;font-weight:700;opacity:.85;}
+  .hero h1{font-size:24px;font-weight:900;margin:6px 0 4px;letter-spacing:.02em;}
+  .hero p{font-size:13px;opacity:.95;max-width:660px;}
+
+  .sec{background:#fff;border-radius:14px;padding:22px 26px;margin:16px 0;box-shadow:0 2px 12px rgba(36,48,66,.06);page-break-inside:avoid;}
+  .sec-head{display:flex;align-items:baseline;gap:10px;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid var(--purple-soft);}
+  .sec-head .no{font-size:11px;letter-spacing:.15em;font-weight:800;color:var(--purple);}
+  .sec h2{font-size:18px;font-weight:900;color:var(--purple);}
+  .sec h2 small{font-size:12px;color:var(--muted);font-weight:500;margin-left:8px;}
+
+  .note{background:var(--blue-soft);border-left:4px solid var(--blue);padding:12px 16px;border-radius:0 8px 8px 0;margin:8px 0;font-size:12.5px;}
+  .warn{background:var(--amber-soft);border-left:4px solid var(--amber);padding:12px 16px;border-radius:0 8px 8px 0;margin:8px 0;font-size:12.5px;color:#78350f;}
+  .good{background:var(--green-soft);border-left:4px solid var(--green);padding:12px 16px;border-radius:0 8px 8px 0;margin:8px 0;font-size:12.5px;color:#0b4a2a;}
+
+  /* comparison table */
+  table.cmp{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px;margin-top:6px;}
+  table.cmp th{background:var(--purple);color:#fff;padding:9px 12px;text-align:left;font-size:12px;font-weight:700;}
+  table.cmp th:first-child{background:#4c1d95;width:130px;}
+  table.cmp td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.6;}
+  table.cmp td:first-child{font-weight:800;background:var(--paper);color:var(--ink);}
+  table.cmp .rec{background:linear-gradient(#f7f2ff,#fff);}
+  .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:800;margin-left:6px;background:var(--green);color:#fff;}
+
+  /* System diagram wrapper */
+  .diag{width:100%;height:auto;display:block;margin:0 auto;}
+  .caption{font-size:11px;color:var(--muted);text-align:center;margin-top:6px;font-style:italic;}
+
+  /* Steps */
+  .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;position:relative;margin-top:8px;}
+  .step{border:1px solid var(--line);border-radius:10px;padding:11px 12px;background:#fcfdff;position:relative;}
+  .step .dot{width:22px;height:22px;border-radius:50%;background:var(--purple);color:#fff;font-weight:900;display:flex;align-items:center;justify-content:center;font-size:11px;margin-bottom:5px;}
+  .step h4{font-size:12px;font-weight:800;color:var(--purple);margin-bottom:2px;}
+  .step p{font-size:11px;line-height:1.6;color:var(--ink);}
+  .step:not(:last-child)::after{
+    content:'';position:absolute;right:-8px;top:50%;transform:translateY(-50%);
+    width:0;height:0;border-left:8px solid var(--purple);border-top:6px solid transparent;border-bottom:6px solid transparent;z-index:2;
+  }
+
+  /* Security list */
+  .slist{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .slist .s{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:#fcfdff;font-size:12.5px;line-height:1.65;}
+  .slist .s h3{font-size:13px;font-weight:800;color:var(--blue);margin-bottom:4px;display:flex;align-items:center;gap:6px;}
+  .slist .s h3 .n{width:22px;height:22px;border-radius:50%;background:var(--blue);color:#fff;font-weight:900;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;}
+
+  /* Spec table */
+  table.spec{width:100%;border-collapse:collapse;font-size:12px;}
+  table.spec th{background:var(--blue);color:#fff;padding:8px 12px;text-align:left;font-size:11.5px;}
+  table.spec td{padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.65;}
+  table.spec td:first-child{font-weight:700;background:var(--paper);width:170px;}
+  table.spec .amt{text-align:right;font-weight:700;color:var(--blue);white-space:nowrap;}
+  .total{border-top:2px solid var(--blue);}
+  .total td{font-weight:800;color:var(--blue);}
+
+  /* Use cases */
+  .uses{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+  .use{border-top:3px solid var(--teal);border-radius:0 0 10px 10px;background:#fcfdff;padding:12px 14px;font-size:12px;line-height:1.65;}
+  .use h3{font-size:13px;font-weight:800;color:var(--teal);margin-bottom:4px;}
+
+  /* Roadmap */
+  .tl{position:relative;padding-left:26px;}
+  .tl::before{content:'';position:absolute;left:8px;top:6px;bottom:6px;width:2px;background:var(--blue-soft);}
+  .tl .it{position:relative;margin-bottom:12px;}
+  .tl .it::before{content:'';position:absolute;left:-22px;top:5px;width:12px;height:12px;border-radius:50%;background:var(--purple);box-shadow:0 0 0 3px var(--purple-soft);}
+  .tl .t{font-size:11px;font-weight:800;color:var(--purple);letter-spacing:.05em;}
+  .tl .h{font-size:14px;font-weight:800;color:var(--ink);}
+  .tl .d{font-size:12.5px;color:var(--muted);}
+
+  /* Start plan */
+  .plan{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+  .wk{border:1px solid var(--line);border-radius:10px;padding:12px;background:#fcfdff;font-size:12px;line-height:1.6;}
+  .wk h3{font-size:13px;font-weight:800;color:var(--purple);margin-bottom:6px;}
+  .wk ul{list-style:none;}
+  .wk li{position:relative;padding:2px 0 2px 14px;}
+  .wk li::before{content:'▍';position:absolute;left:0;top:2px;color:var(--purple);font-size:9px;}
+
+  footer{text-align:center;font-size:11px;color:var(--muted);margin:16px 0 26px;}
+
+  @media print{
+    body{background:#fff;}
+    .wrap{margin:0;padding:0;max-width:none;}
+    .sec,.hero{box-shadow:none;}
+    .sec{border:1px solid var(--line);}
+    @page{size:A4 portrait;margin:10mm;}
+  }
+  @media(max-width:720px){
+    .steps,.slist,.uses,.plan{grid-template-columns:1fr;}
+    .step:not(:last-child)::after{display:none;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <div class="eb">BRIDGE DX ／ ONE-PC LOCAL SETUP</div>
+    <h1>つなぎDXの方向性 ― ローカル1台で、Gemini/Claude を安全に使う</h1>
+    <p>電子カルテ導入までの「つなぎ」として、院内PC1台をハブに、Gemini/Claude APIを組み合わせて安全に運用する。津軽弁の議事録にも対応できる、シンプルで拡張可能な構成。</p>
+  </div>
+
+  <!-- 1. 状況整理 -->
+  <div class="sec">
+    <div class="sec-head"><span class="no">CONTEXT</span><h2>まず現状の整理</h2></div>
+    <div class="warn"><strong>試したAI議事録（取れる君）もWhisperも津軽弁で崩壊し、実用に届かなかった</strong>。市販の「議事録SaaS」や従来型STTは標準日本語モデル前提で、方言に構造的に弱い。</div>
+    <div class="good"><strong>検証の結論：NHK録音での3エンジン比較に加え、実際の院内カンファ録音（7/6・複数話者・津軽弁・医療用語）でもGeminiが成功</strong>。臀部痛・MMT4・T字杖・独歩・体幹前屈まで正確、方言のまま文字起こし＋標準語訳、退院調整の内容も完全再現（取れる君は「鋼鉄工場の天仏とミニカシのしびれ」と崩壊）。<strong>議事録はGemini直接音声入力で確定・検証完了</strong>。</div>
+    <div class="note">今回の方針＝<strong>「電子カルテ導入までのつなぎ」</strong>。大がかりな契約や全院展開は避け、<strong>院内PC1台＋Gemini/Claude API＋少数スタッフ</strong>で回す。うまく回ったら横に広げる。</div>
+  </div>
+
+  <!-- 2. 選択肢の比較 -->
+  <div class="sec">
+    <div class="sec-head"><span class="no">CHOICE</span><h2>2つのアプローチの比較</h2></div>
+    <table class="cmp">
+      <thead>
+        <tr><th>観点</th><th>A. Google Workspace 中心</th><th>B. ローカル1台 ＋ Claude Code 開発 <span class="badge">推奨</span></th></tr>
+      </thead>
+      <tbody>
+        <tr><td>初期の重さ</td><td>Workspaceの契約・全員のアカウント発行・移行が必要</td><td class="rec">PC1台とAPIキーだけ。今週始められる</td></tr>
+        <tr><td>月額の負担</td><td>ユーザー数×月額（増えるほど重い）</td><td class="rec">API従量。使った分だけ（月数千〜数万円）</td></tr>
+        <tr><td>津軽弁 議事録</td><td>Workspace内のGeminiに音声投入で対応。ただし方言対策の調整はしにくい</td><td class="rec">ローカルWhisper＋Gemini/Claudeで「聞く→整形」の2段運用が自由に調整可</td></tr>
+        <tr><td>患者情報の扱い</td><td>Google側にデータが常駐（Enterprise契約で管理は可）</td><td class="rec">生データは院内PCから出ない。APIには匿名化後だけ送信</td></tr>
+        <tr><td>個別ツール開発</td><td>基本は既製アプリの範囲内</td><td class="rec">Claude Codeで小さな道具を継ぎ足せる（紹介状雛形／要約／台帳）</td></tr>
+        <tr><td>電カル移行時</td><td>Workspaceは残す前提（そのまま使い続ける）</td><td class="rec">役目を終えたら畳める。継ぎ足したデータはCSVでEHRへ</td></tr>
+        <tr><td>要る人手</td><td>導入時にIT業者伴走が要（有償）</td><td class="rec">医師＋若手医師でClaude Codeを触れば済む規模</td></tr>
+        <tr><td>向いている場面</td><td>全職員のメール・共有ドライブから統一したい時</td><td class="rec"><strong>電カル導入までの「つなぎ」で、少数精鋭で回す時</strong></td></tr>
+      </tbody>
+    </table>
+    <div class="good" style="margin-top:12px;">
+      <strong>結論：Bを推奨</strong>。今の要件（つなぎ／PC1台／簡素／セキュリティ重視）と、津軽弁議事録の柔軟性・費用感すべてにフィットする。Workspaceは<strong>院内メール等の別課題として、必要になったら別途</strong>検討でよい。
+    </div>
+  </div>
+
+  <!-- 3. システム構成図 -->
+  <div class="sec">
+    <div class="sec-head"><span class="no">FIGURE</span><h2>システム構成図<small>ローカル1台がハブ／患者データは院内から出ない</small></h2></div>
+
+    <svg class="diag" viewBox="0 0 900 480" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arT" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#0e9384"/>
+        </marker>
+        <marker id="arP" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#7c3aed"/>
+        </marker>
+        <marker id="arB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#1466b0"/>
+        </marker>
+      </defs>
+
+      <!-- Input side (left) -->
+      <rect x="20" y="60" width="200" height="360" rx="10" fill="#dff5f1" stroke="#0e9384" stroke-width="2"/>
+      <rect x="20" y="60" width="200" height="28" rx="10" fill="#0e9384"/>
+      <text x="120" y="80" text-anchor="middle" font-size="12" fill="#fff" font-weight="800">入力（院内）</text>
+
+      <g font-size="11">
+        <rect x="35" y="105" width="170" height="60" rx="6" fill="#fff" stroke="#0e9384"/>
+        <text x="120" y="123" text-anchor="middle" font-weight="800">ICレコーダー</text>
+        <text x="120" y="140" text-anchor="middle" fill="#5b6b7e">カンファ・面談の音声</text>
+        <text x="120" y="155" text-anchor="middle" fill="#5b6b7e" font-size="10">USB接続で取り込み</text>
+
+        <rect x="35" y="175" width="170" height="60" rx="6" fill="#fff" stroke="#0e9384"/>
+        <text x="120" y="193" text-anchor="middle" font-weight="800">紙・PDF・写真</text>
+        <text x="120" y="210" text-anchor="middle" fill="#5b6b7e">紹介状・報告書 下書き</text>
+        <text x="120" y="225" text-anchor="middle" fill="#5b6b7e" font-size="10">スキャン → OCR</text>
+
+        <rect x="35" y="245" width="170" height="60" rx="6" fill="#fff" stroke="#0e9384"/>
+        <text x="120" y="263" text-anchor="middle" font-weight="800">kintone / Excel</text>
+        <text x="120" y="280" text-anchor="middle" fill="#5b6b7e">院内業務データ</text>
+        <text x="120" y="295" text-anchor="middle" fill="#5b6b7e" font-size="10">CSV書き出しで連携</text>
+
+        <rect x="35" y="315" width="170" height="60" rx="6" fill="#fff" stroke="#0e9384"/>
+        <text x="120" y="333" text-anchor="middle" font-weight="800">手打ちの相談</text>
+        <text x="120" y="350" text-anchor="middle" fill="#5b6b7e">飯尾医師・若手医師が</text>
+        <text x="120" y="365" text-anchor="middle" fill="#5b6b7e" font-size="10">Claude Code で質問</text>
+      </g>
+
+      <!-- Center: Local PC -->
+      <rect x="260" y="30" width="360" height="420" rx="12" fill="#e9f2fb" stroke="#1466b0" stroke-width="2.5"/>
+      <rect x="260" y="30" width="360" height="34" rx="12" fill="#1466b0"/>
+      <text x="440" y="52" text-anchor="middle" font-size="13" fill="#fff" font-weight="800">院内の専用PC ─ 施錠部屋 ／ 認証 ／ 暗号化ディスク</text>
+
+      <g font-size="11">
+        <!-- Inside PC: OS + 4 modules -->
+        <rect x="275" y="80" width="330" height="30" rx="6" fill="#fff" stroke="#1466b0"/>
+        <text x="440" y="99" text-anchor="middle" font-weight="800" fill="#1466b0">macOS / Windows（FileVault or BitLocker）</text>
+
+        <!-- Module 1: STT -->
+        <rect x="275" y="122" width="158" height="80" rx="6" fill="#fff" stroke="#0e9384" stroke-width="1.5"/>
+        <text x="354" y="140" text-anchor="middle" font-weight="800" fill="#0e9384">① 音声→文字</text>
+        <text x="354" y="158" text-anchor="middle" font-size="10">議事録・吹込みともGemini本命</text>
+        <text x="354" y="173" text-anchor="middle" font-size="10">（Whisperは検証で誤り多く格下げ）</text>
+        <text x="354" y="188" text-anchor="middle" font-size="10" fill="#c9760a" font-weight="700">録音時に患者名を発話しない</text>
+
+        <!-- Module 2: 匿名化 -->
+        <rect x="447" y="122" width="158" height="80" rx="6" fill="#fff" stroke="#c9760a" stroke-width="1.5"/>
+        <text x="526" y="140" text-anchor="middle" font-weight="800" fill="#c9760a">② 匿名化スクリプト</text>
+        <text x="526" y="158" text-anchor="middle" font-size="10">氏名・ID・住所を</text>
+        <text x="526" y="173" text-anchor="middle" font-size="10">仮名／マスクに置換</text>
+        <text x="526" y="188" text-anchor="middle" font-size="10">Claude Code で自作</text>
+
+        <!-- Module 3: LLM cleanup -->
+        <rect x="275" y="212" width="158" height="80" rx="6" fill="#fff" stroke="#7c3aed" stroke-width="1.5"/>
+        <text x="354" y="230" text-anchor="middle" font-weight="800" fill="#7c3aed">③ LLM整形</text>
+        <text x="354" y="248" text-anchor="middle" font-size="10">Gemini / Claude API</text>
+        <text x="354" y="263" text-anchor="middle" font-size="10">津軽弁→標準日本語</text>
+        <text x="354" y="278" text-anchor="middle" font-size="10">要約／下書き生成</text>
+
+        <!-- Module 4: Output -->
+        <rect x="447" y="212" width="158" height="80" rx="6" fill="#fff" stroke="#1466b0" stroke-width="1.5"/>
+        <text x="526" y="230" text-anchor="middle" font-weight="800" fill="#1466b0">④ 保存・出力</text>
+        <text x="526" y="248" text-anchor="middle" font-size="10">Markdown/PDF</text>
+        <text x="526" y="263" text-anchor="middle" font-size="10">kintone連携（任意）</text>
+        <text x="526" y="278" text-anchor="middle" font-size="10">監査ログを自動記録</text>
+
+        <!-- Claude Code as glue -->
+        <rect x="275" y="304" width="330" height="52" rx="6" fill="#fdf1df" stroke="#c9760a" stroke-width="1.5"/>
+        <text x="440" y="324" text-anchor="middle" font-weight="800" fill="#c9760a">Claude Code（開発・拡張）</text>
+        <text x="440" y="342" text-anchor="middle" font-size="10" fill="#7a4a06">上記4モジュールを繋ぐスクリプトを継ぎ足していく</text>
+
+        <!-- Security notes -->
+        <rect x="275" y="366" width="330" height="72" rx="6" fill="#f4f7fa" stroke="#dfe6ee"/>
+        <text x="440" y="384" text-anchor="middle" font-size="10" fill="#5b6b7e">生体認証 ／ 自動ロック3分 ／ USB制限 ／ APIキーはKeychain</text>
+        <text x="440" y="401" text-anchor="middle" font-size="10" fill="#5b6b7e">週次バックアップ（暗号化外付けSSD） ／ 監査ログをファイルで残す</text>
+        <text x="440" y="425" text-anchor="middle" font-size="11" fill="#b91c1c" font-weight="800">患者の生データは このPC の中に留める（外部APIには渡さない）</text>
+      </g>
+
+      <!-- Right: External APIs -->
+      <rect x="660" y="60" width="220" height="360" rx="10" fill="#f2ebfa" stroke="#7c3aed" stroke-width="2"/>
+      <rect x="660" y="60" width="220" height="28" rx="10" fill="#7c3aed"/>
+      <text x="770" y="80" text-anchor="middle" font-size="12" fill="#fff" font-weight="800">外部AI（法人契約）</text>
+
+      <g font-size="11">
+        <rect x="675" y="105" width="190" height="90" rx="6" fill="#fff" stroke="#7c3aed"/>
+        <text x="770" y="123" text-anchor="middle" font-weight="800" fill="#7c3aed">Gemini API</text>
+        <text x="770" y="142" text-anchor="middle" font-size="10" fill="#5b6b7e">津軽弁 音声→文字（検証済）</text>
+        <text x="770" y="158" text-anchor="middle" font-size="10" fill="#5b6b7e">整形・要約・下書き</text>
+        <text x="770" y="176" text-anchor="middle" font-size="10" fill="#c9760a" font-weight="700">学習利用オフ設定</text>
+
+        <rect x="675" y="205" width="190" height="90" rx="6" fill="#fff" stroke="#7c3aed"/>
+        <text x="770" y="223" text-anchor="middle" font-weight="800" fill="#7c3aed">Claude API</text>
+        <text x="770" y="242" text-anchor="middle" font-size="10" fill="#5b6b7e">整形・要約・下書き</text>
+        <text x="770" y="258" text-anchor="middle" font-size="10" fill="#5b6b7e">Claude Code経由で</text>
+        <text x="770" y="276" text-anchor="middle" font-size="10" fill="#c9760a" font-weight="700">学習に使わない</text>
+
+        <rect x="675" y="305" width="190" height="90" rx="6" fill="#fff" stroke="#dfe6ee"/>
+        <text x="770" y="325" text-anchor="middle" font-weight="800" fill="#5b6b7e">受け取るのは</text>
+        <text x="770" y="343" text-anchor="middle" font-weight="800" fill="#b91c1c">匿名化後のテキストのみ</text>
+        <text x="770" y="363" text-anchor="middle" font-size="10" fill="#5b6b7e">音声・氏名・IDは</text>
+        <text x="770" y="378" text-anchor="middle" font-size="10" fill="#5b6b7e">送らない</text>
+      </g>
+
+      <!-- Arrows -->
+      <path d="M 220 145 L 275 155" stroke="#0e9384" stroke-width="2" fill="none" marker-end="url(#arT)"/>
+      <path d="M 220 205 L 275 190" stroke="#0e9384" stroke-width="2" fill="none" marker-end="url(#arT)"/>
+      <path d="M 220 275 L 275 260" stroke="#0e9384" stroke-width="2" fill="none" marker-end="url(#arT)"/>
+      <path d="M 220 345 L 275 330" stroke="#0e9384" stroke-width="2" fill="none" marker-end="url(#arT)"/>
+
+      <!-- From匿名化 to API -->
+      <path d="M 605 165 L 660 150" stroke="#7c3aed" stroke-width="2.5" fill="none" marker-end="url(#arP)"/>
+      <path d="M 605 165 L 660 250" stroke="#7c3aed" stroke-width="2.5" fill="none" marker-end="url(#arP)"/>
+      <text x="625" y="140" font-size="10" fill="#7c3aed" font-weight="800">匿名テキスト</text>
+    </svg>
+
+    <div class="caption">図：ICレコーダー等で取った音声・文書はローカルPC内でWhisperがテキスト化。匿名化してから外部AIへ。生データは院内から出ない。</div>
+  </div>
+
+  <!-- 4. 津軽弁対策 -->
+  <div class="sec">
+    <div class="sec-head"><span class="no">DIALECT</span><h2>津軽弁への現実的な対応<small>「文字起こしを直す」のではなく「起こす対象を変える」</small></h2></div>
+
+    <div class="good">
+      <strong>検証済み（2026年5月・同一のNHK録音・マイク手持ち収録で3エンジン比較）：Geminiの圧勝。</strong><br>
+      ▸ <strong>アナウンサー部分（クリーンな標準語）</strong>：取れる君=ほぼ正確／<strong>Whisper=誤りあり</strong>（「馬に襲われて」「千木市」等）／Gemini=ほぼ完璧（固有名詞・数値まで正確）。<br>
+      ▸ <strong>津軽弁インタビュー</strong>：取れる君=崩壊／Whisper=崩壊＋幻覚／<strong>Geminiのみ方言のまま文字起こし＋標準語訳併記</strong>（「まんず、あど、仲良ぐしでけで」→「まず、あとは、仲良くしてくれて」）。<br>
+      ▸ <strong>実カンファ録音（7/6・3分・複数話者）でも検証済み</strong>：医療用語（臀部痛/MMT4/T字杖/独歩/体幹前屈）すべて正確、「だばって」「はんで」「〜してら」を方言のまま起こし標準語訳・用語解説付き。退院調整（孫の車→ヘルスバス検討、娘宅→独居、お盆前退院目標）まで完全再現。<br>
+      → <strong>議事録の本命エンジンは Gemini 直接音声入力に確定。実環境での検証も完了</strong>。
+    </div>
+    <div class="warn">
+      <strong>検証から言えること（重要）：</strong>①マイク手持ち＝録音品質良好でもこの結果＝<strong>失敗の主因は録音環境ではなくエンジン</strong>。②取れる君はアナウンサーの標準語なら正確→院内会議で「標準語を意識」しても崩壊したのは、<strong>意識では消えない津軽訛りが残るため</strong>。③<strong>Whisperはクリーンな標準語ですら誤る</strong>→ローカルWhisperによるディクテーション案は期待薄。従来型STTを追い込む方向に時間を使わない。
+    </div>
+
+    <p style="font-size:13px;font-weight:700;margin:14px 0 8px;color:var(--purple)">運用の3つの型（本命A＋保険B/C）</p>
+
+    <div class="steps" style="grid-template-columns:repeat(3,1fr);">
+      <div class="step">
+        <div class="dot">A</div>
+        <h4>Gemini直接音声（本命）</h4>
+        <p>カンファ録音を<strong>そのままGeminiへ</strong>。「方言のまま文字起こし＋標準語訳＋議事録体裁に整形」まで1プロンプトで指示。医師は[?]箇所と要点を5〜10分確認。<strong>検証済みで精度は実用圏</strong>。</p>
+      </div>
+      <div class="step">
+        <div class="dot">B</div>
+        <h4>ディクテーション（Gemini＋仮名）</h4>
+        <p>紹介状・サマリの下書きは<strong>患者名を「患者A」等と吹き込んでGeminiへ</strong>。返った下書きの仮名を院内で実名に置換。※Whisperはアナウンサー音声でも誤ったため<strong>ローカル処理案は期待薄</strong>（試すなら5分テストのみ）。</p>
+      </div>
+      <div class="step">
+        <div class="dot">C</div>
+        <h4>メモ→整形（保険）</h4>
+        <p>騒がしい会議・録音不可の場面は<strong>走り書きメモをLLMで議事録体裁に整形</strong>。音声認識を迂回する保険として維持。</p>
+      </div>
+    </div>
+
+    <div class="warn" style="margin-top:12px;">
+      <strong>A型の注意（重要）：音声を外部に送る経路を厳密に使い分ける。</strong><br>
+      ▸ <strong>AI Studio（無料）＝実運用禁止</strong>。アップロードデータが製品改善に使われ得る（検証はここで実施済み→今後は使わない）。<br>
+      ▸ <strong>当面の運用＝Geminiアプリ（Pro契約）＋「Geminiアプリ アクティビティ」オフ</strong>。学習利用なし（一時保存最大72時間のみ）。追加費用ゼロで今日から可。<br>
+      ▸ <strong>自動化・本運用＝Gemini API（有料・従量）または Workspace/Vertex AI</strong>。規約上、入力データは学習に使用されない。15分の会議1回あたり数円程度。<br>
+      ▸ いずれの経路でも<strong>会議録音は患者氏名を発話しないルール</strong>（「1人目の方」「303号室の方」等）で録る。これで72時間保存の論点自体が消える。院内の個人情報管理者にも一言通しておく。
+    </div>
+    <div class="good">
+      <strong>地の利：弘前大学が津軽弁AIの本家。</strong>当院は弘前。医療現場応用も研究目標に含まれており、中長期では<strong>共同研究・実証フィールド提供</strong>の打診も検討価値あり（患者会話の記録という将来課題に繋がる）。
+    </div>
+  </div>
+
+  <!-- 5. セキュリティ7原則 -->
+  <div class="sec">
+    <div class="sec-head"><span class="no">SECURITY</span><h2>安全に運用する7つの原則</h2></div>
+    <div class="slist">
+      <div class="s"><h3><span class="n">1</span>1台に集約・施錠部屋</h3>診療エリア外の施錠部屋に設置。盗難防止ワイヤー。<strong>使う人は数名に限定</strong>。</div>
+      <div class="s"><h3><span class="n">2</span>ディスク暗号化＋生体認証</h3>FileVault / BitLocker を有効化。Touch IDまたはPINで解除。<strong>自動ロック3分</strong>。</div>
+      <div class="s"><h3><span class="n">3</span>ネットワーク分離</h3>院内Wi-Fi（業務用SSID）に接続。<strong>他PCとのファイル共有はオフ</strong>。院外VPNは使わない。</div>
+      <div class="s"><h3><span class="n">4</span>API通信の最小化</h3>APIキーはKeychain/秘密環境変数で管理。<strong>患者情報はマスクしてから送信</strong>。学習利用オフを法人契約で担保。</div>
+      <div class="s"><h3><span class="n">5</span>監査ログを残す</h3>「いつ・誰が・何をAPIに送った」をJSONで自動記録。<strong>週1回、医師が目視レビュー</strong>。</div>
+      <div class="s"><h3><span class="n">6</span>USB・外部通信の制限</h3>USBストレージは基本禁止。バックアップ用の暗号化SSD1本のみ許可。<strong>クラウド同期は入れない</strong>。</div>
+      <div class="s"><h3><span class="n">7</span>週次バックアップ・世代管理</h3>暗号化外付けSSDに<strong>週次で差分バックアップ</strong>。4世代残す。SSDは施錠保管。</div>
+      <div class="s"><h3><span class="n">8</span>撤収手順を先に決める</h3>電カル導入時に<strong>PCを廃棄する手順（データ完全消去・SSD物理破壊）</strong>を今から明文化しておく。</div>
+    </div>
+  </div>
+
+  <!-- 6. 機材・ソフト構成とコスト -->
+  <div class="sec">
+    <div class="sec-head"><span class="no">SPEC</span><h2>機材・ソフト構成とコスト</h2></div>
+    <table class="spec">
+      <thead><tr><th>項目</th><th>推奨</th><th class="amt">概算</th></tr></thead>
+      <tbody>
+        <tr><td>本体PC</td><td><strong>Mac mini M4（24GB / 512GB SSD）</strong>を推奨。ローカルWhisperがNeural Engineで高速。Windows Pro（Ryzen7 / 32GB / 1TB）でも可。</td><td class="amt">18〜25万円</td></tr>
+        <tr><td>ディスプレイ・入力</td><td>27inch モニター、キーボード、マウス（既存流用可）</td><td class="amt">5〜8万円</td></tr>
+        <tr><td>ICレコーダー</td><td>PCM高音質録音・USB取り込み対応の1台</td><td class="amt">2〜3万円</td></tr>
+        <tr><td>暗号化外付けSSD</td><td>1TB以上、AES256対応（バックアップ用）</td><td class="amt">1.5万円</td></tr>
+        <tr><td>盗難防止ワイヤー・施錠</td><td>Kensington等の物理ロック、施錠キャビネット</td><td class="amt">1万円</td></tr>
+        <tr><td>OSソフト</td><td>macOS標準（FileVault内蔵） or Windows Pro</td><td class="amt">同梱</td></tr>
+        <tr><td>Whisper.cpp / MLX-Whisper</td><td>検証で標準語すら誤りあり→<strong>採用見送り</strong>（参考記載）</td><td class="amt">―</td></tr>
+        <tr><td>Claude Code</td><td>開発・自動化のハブ</td><td class="amt">プラン内</td></tr>
+        <tr><td>Gemini API（法人）</td><td>Google Cloud または Google AI Enterprise 契約で学習利用オフ</td><td class="amt">従量／月0.5〜3万円</td></tr>
+        <tr><td>Claude API（法人）</td><td>Anthropic Console。データは学習に使われない</td><td class="amt">従量／月0.5〜3万円</td></tr>
+        <tr class="total"><td>初期費用（機材）合計</td><td>Mac mini構成の場合</td><td class="amt">約30万円前後</td></tr>
+        <tr class="total"><td>ランニング（API合計）</td><td>使用量次第。少人数運用なら</td><td class="amt">月1〜5万円</td></tr>
+      </tbody>
+    </table>
+    <div class="note" style="margin-top:12px;">
+      補助金の位置づけ：この1台PC＋API利用は<strong>デジタル化・AI導入補助金の対象になりにくい</strong>（ハード単体＋従量課金は通常枠の想定外）。当面は<strong>院内予算での投資</strong>と割り切り、<strong>実績データを蓄積して次年度の医療補助金（4/5・8,000万）に接続</strong>するのが筋。
+    </div>
+  </div>
+
+  <!-- 7. 用途 -->
+  <div class="sec">
+    <div class="sec-head"><span class="no">USE CASES</span><h2>この1台で何をするか</h2></div>
+    <div class="uses">
+      <div class="use"><h3>1. カンファ議事録</h3>録音（患者名は発話しない）→ Gemini直接音声で「方言まま＋標準語訳＋議事録整形」→ 医師5〜10分確認。清書ゼロ。</div>
+      <div class="use"><h3>2. 紹介状・退院サマリ 下書き</h3>患者名を「患者A」で吹き込み（Gemini）or 要点打ち込み → LLMが下書き → 実名置換・加筆修正。</div>
+      <div class="use"><h3>3. 文献・ガイドライン要約</h3>PDFを投入 → 要点抽出。忙しい合間にキャッチアップ。</div>
+      <div class="use"><h3>4. kintoneデータの分析補助</h3>CSVを投げてトレンド抽出。院内会議の資料作りが速くなる。</div>
+      <div class="use"><h3>5. 学会資料・図表の下書き</h3>スライドの骨子作成、図表案の生成、英文校正。</div>
+      <div class="use"><h3>6. 院内問合せ対応の下書き</h3>問合せメール／稟議書のたたき台を数十秒で。</div>
+    </div>
+  </div>
+
+  <!-- 8. 電カル移行までのロードマップ -->
+  <div class="sec">
+    <div class="sec-head"><span class="no">ROADMAP</span><h2>電カル導入までのロードマップ</h2></div>
+    <div class="tl">
+      <div class="it">
+        <div class="t">今〜3ヶ月</div>
+        <div class="h">Phase 1：議事録の本運用化・専用環境整備</div>
+        <div class="d">検証は完了済み。Geminiアプリ（アクティビティオフ）で手動運用を開始しつつ、専用PC・APIキー（有料＝学習利用なし）を整備し「フォルダに録音→議事録Wordが出る」自動化へ。使う人は飯尾医師＋若手医師。</div>
+      </div>
+      <div class="it">
+        <div class="t">3〜9ヶ月</div>
+        <div class="h">Phase 2：用途拡大・kintone連携</div>
+        <div class="d">紹介状・要約・分析へ用途を広げる。kintoneが動いていればCSV連携で分析補助。監査ログを残しつつ効果測定。</div>
+      </div>
+      <div class="it">
+        <div class="t">9〜15ヶ月</div>
+        <div class="h">Phase 3：次年度 医療補助金の申請根拠へ</div>
+        <div class="d">議事録・記録作業の時間削減データを蓄積。医療分野 業務効率化・職場環境改善支援事業（4/5・上限8,000万）の申請根拠に転用。意向調査で必ず手を挙げる。</div>
+      </div>
+      <div class="it">
+        <div class="t">電カル導入時</div>
+        <div class="h">Phase 4：役割の再設計・撤収</div>
+        <div class="d">標準型電カル導入時、診療情報は電カルへ集約。1台PCの用途を「議事録・下書き支援」に絞り込む or 撤収。撤収時のデータ完全消去手順を実行。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 9. スタートプラン -->
+  <div class="sec">
+    <div class="sec-head"><span class="no">KICKOFF</span><h2>最初の4週間プラン</h2></div>
+    <div class="plan">
+      <div class="wk">
+        <h3>Week 1：調達・設置</h3>
+        <ul>
+          <li>Mac mini M4／周辺機器 発注</li>
+          <li>設置場所（施錠部屋）確定</li>
+          <li>Gemini/Claude 法人契約 手続き</li>
+          <li>ICレコーダー選定</li>
+        </ul>
+      </div>
+      <div class="wk">
+        <h3>Week 2：セキュリティ構築</h3>
+        <ul>
+          <li>FileVault／生体認証／自動ロック</li>
+          <li>APIキーをKeychainへ</li>
+          <li>暗号化SSDでバックアップ設定</li>
+          <li>監査ログの雛形をClaude Codeで作成</li>
+        </ul>
+      </div>
+      <div class="wk">
+        <h3>Week 3：ワークフロー構築</h3>
+        <ul>
+          <li>Gemini議事録パイプライン構築（検証済）</li>
+          <li>仮名ディクテーション運用（Gemini）</li>
+          <li>匿名化スクリプト（Claude Codeで自作）</li>
+          <li>議事録テンプレ・整形プロンプト整備</li>
+        </ul>
+      </div>
+      <div class="wk">
+        <h3>Week 4：試運転・振り返り</h3>
+        <ul>
+          <li>実カンファで「復唱方式」を試す</li>
+          <li>紹介状ディクテーションを本運用</li>
+          <li>メモ→整形も並行で試す</li>
+          <li>効果（時間削減）を記録開始</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    弘前メモリアル病院 つなぎDX 方向性メモ（内部案）／ 実装の細部はClaude Codeで反復しながら固めます。
+  </footer>
+
+</div>
+</body>
+</html>

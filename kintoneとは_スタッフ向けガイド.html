@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>kintone（キントーン）ってなに？｜弘前メモリアル病院 スタッフ向けガイド</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
+
+  :root{
+    --ink:#243042; --muted:#5b6b7e; --line:#dfe6ee;
+    --blue:#1466b0; --blue-soft:#e9f2fb;
+    --teal:#0e9384; --teal-soft:#dff5f1;
+    --green:#1a9b54; --green-soft:#e3f6ec;
+    --amber:#c9760a; --amber-soft:#fdf1df;
+    --rose:#d23f57; --rose-soft:#fdeaed;
+    --paper:#f4f7fa;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:'Noto Sans JP',"Hiragino Sans","Yu Gothic",sans-serif;
+    color:var(--ink); background:var(--paper); line-height:1.85; font-size:14px;
+    -webkit-print-color-adjust:exact; print-color-adjust:exact;
+  }
+  .wrap{max-width:880px; margin:24px auto; padding:0 16px;}
+
+  /* Hero */
+  .hero{
+    background:linear-gradient(135deg,#1466b0,#0e9384);
+    color:#fff; border-radius:18px; padding:34px 36px; position:relative; overflow:hidden;
+    box-shadow:0 8px 30px rgba(20,102,176,.22);
+  }
+  .hero::after{content:'';position:absolute;right:-50px;bottom:-70px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.08);}
+  .hero .eyebrow{font-size:12px;letter-spacing:.18em;font-weight:700;opacity:.85;}
+  .hero h1{font-size:30px;font-weight:900;margin:8px 0 6px;letter-spacing:.02em;}
+  .hero p{font-size:14px;opacity:.95;max-width:600px;}
+  .hero .for{margin-top:14px;display:inline-block;background:rgba(255,255,255,.18);padding:5px 14px;border-radius:20px;font-size:12px;font-weight:700;}
+
+  /* Section */
+  .sec{background:#fff;border-radius:16px;padding:26px 30px;margin:18px 0;box-shadow:0 2px 14px rgba(36,48,66,.06);page-break-inside:avoid;}
+  .sec-head{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
+  .ico{width:40px;height:40px;border-radius:11px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:var(--blue-soft);}
+  .ico svg{width:22px;height:22px;stroke:var(--blue);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  .sec h2{font-size:20px;font-weight:900;color:var(--blue);}
+  .sec h2 .en{display:block;font-size:10px;letter-spacing:.16em;color:var(--muted);font-weight:700;}
+
+  .big{font-size:18px;font-weight:700;line-height:1.7;}
+  .hl{background:linear-gradient(transparent 62%, #ffe49b 62%);font-weight:700;padding:0 2px;}
+  .lead-card{background:var(--teal-soft);border-radius:12px;padding:16px 18px;font-size:16px;font-weight:700;color:#0a5e55;line-height:1.7;}
+
+  .grid{display:grid;gap:12px;}
+  .g3{grid-template-columns:repeat(3,1fr);}
+  .g2{grid-template-columns:1fr 1fr;}
+  .feat{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:#fcfdff;}
+  .feat .ft-ico{width:34px;height:34px;border-radius:9px;background:var(--blue-soft);display:flex;align-items:center;justify-content:center;margin-bottom:8px;}
+  .feat .ft-ico svg{width:18px;height:18px;stroke:var(--blue);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  .feat h3{font-size:14px;font-weight:700;margin-bottom:2px;}
+  .feat p{font-size:12.5px;color:var(--muted);line-height:1.6;}
+
+  /* metaphor */
+  .meta-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;margin:6px 0 2px;font-weight:700;}
+  .chip{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-size:13px;}
+  .plus{color:var(--teal);font-size:20px;font-weight:900;}
+  .eq{color:var(--blue);font-size:20px;font-weight:900;}
+  .chip.result{background:var(--blue);color:#fff;border-color:var(--blue);}
+
+  /* before after */
+  .ba{border:1px solid var(--line);border-radius:14px;overflow:hidden;margin:12px 0;}
+  .ba-top{display:flex;align-items:center;gap:10px;background:#f8fafc;padding:11px 16px;border-bottom:1px solid var(--line);}
+  .ba-num{width:30px;height:30px;border-radius:50%;background:var(--blue);color:#fff;font-weight:900;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+  .ba-top h3{font-size:16px;font-weight:800;}
+  .ba-top .tag{margin-left:auto;font-size:11px;font-weight:800;color:var(--amber);background:var(--amber-soft);padding:3px 10px;border-radius:12px;}
+  .ba-body{display:grid;grid-template-columns:1fr 44px 1fr;}
+  .ba-col{padding:14px 16px;}
+  .ba-col.before{background:var(--rose-soft);}
+  .ba-col.after{background:var(--green-soft);}
+  .ba-col .lbl{font-size:11px;font-weight:800;letter-spacing:.05em;margin-bottom:5px;}
+  .before .lbl{color:var(--rose);}
+  .after .lbl{color:var(--green);}
+  .ba-col p{font-size:13px;line-height:1.65;}
+  .ba-arrow{display:flex;align-items:center;justify-content:center;}
+  .ba-arrow svg{width:22px;height:22px;stroke:var(--teal);fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;}
+
+  /* FAQ */
+  .faq{border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin:10px 0;background:#fcfdff;}
+  .faq .q{font-size:14.5px;font-weight:800;color:var(--blue);display:flex;gap:8px;}
+  .faq .q .mark{color:var(--teal);font-weight:900;}
+  .faq .a{font-size:13px;color:var(--ink);margin-top:5px;padding-left:22px;line-height:1.7;}
+  .faq .a .mark{color:var(--rose);font-weight:900;margin-right:4px;}
+
+  /* day story */
+  .story{position:relative;padding-left:26px;}
+  .story::before{content:'';position:absolute;left:8px;top:6px;bottom:6px;width:2px;background:var(--blue-soft);}
+  .story .it{position:relative;margin-bottom:14px;}
+  .story .it::before{content:'';position:absolute;left:-22px;top:5px;width:12px;height:12px;border-radius:50%;background:var(--teal);box-shadow:0 0 0 3px var(--teal-soft);}
+  .story .t{font-size:12px;font-weight:800;color:var(--teal);}
+  .story .d{font-size:13px;line-height:1.65;}
+
+  /* security */
+  .slist{list-style:none;display:grid;gap:8px;}
+  .slist li{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.6;}
+  .slist li .ck{flex-shrink:0;width:22px;height:22px;border-radius:50%;background:var(--green-soft);display:flex;align-items:center;justify-content:center;margin-top:1px;}
+  .slist li .ck svg{width:13px;height:13px;stroke:var(--green);fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;}
+
+  .callout{background:var(--amber-soft);border-left:5px solid var(--amber);border-radius:0 10px 10px 0;padding:13px 16px;font-size:13px;color:#7a4a06;line-height:1.7;}
+  .point{background:var(--blue-soft);border-radius:12px;padding:14px 18px;font-size:13.5px;line-height:1.75;}
+  .point strong{color:var(--blue);}
+
+  /* contact */
+  .contact{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+  .pcard{border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center;background:#fcfdff;}
+  .pcard .role{font-size:11px;font-weight:800;color:var(--teal);letter-spacing:.04em;}
+  .pcard .nm{font-size:15px;font-weight:800;margin-top:3px;}
+  .pcard .ds{font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.5;}
+
+  footer{text-align:center;font-size:11px;color:var(--muted);margin:18px 0 30px;line-height:1.7;}
+
+  @media print{
+    body{background:#fff;}
+    .wrap{margin:0;max-width:none;padding:0;}
+    .sec,.hero{box-shadow:none;}
+    .sec{border:1px solid var(--line);}
+    @page{size:A4;margin:12mm;}
+  }
+  @media(max-width:680px){
+    .g3,.g2,.contact{grid-template-columns:1fr;}
+    .ba-body{grid-template-columns:1fr;}
+    .ba-arrow{transform:rotate(90deg);padding:4px 0;}
+    .hero h1{font-size:24px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="eyebrow">STAFF GUIDE ／ かんたん解説</div>
+    <h1>kintone（キントーン）ってなに？</h1>
+    <p>「むずかしそう」「パソコン苦手だし…」という方へ。これは<strong>みんなの仕事をラクにするための道具</strong>です。3分で「なるほど」になるようにまとめました。</p>
+    <span class="for">弘前メモリアル病院 スタッフ向け ／ まずはリハビリ病棟から</span>
+  </div>
+
+  <!-- 1. 一言で -->
+  <div class="sec">
+    <div class="sec-head">
+      <div class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg></div>
+      <h2>ひとことで言うと？<span class="en">WHAT IS KINTONE</span></h2>
+    </div>
+    <div class="lead-card">
+      kintoneは、<span style="color:#b45309">むずかしいプログラミングなしで</span>、<br>
+      <u>当院専用の「かんたん業務アプリ」を作れるサービス</u>です。
+    </div>
+    <p style="margin:14px 0 10px;">いつも使っている、これらが<strong>ひとつに合体</strong>したイメージです。</p>
+    <div class="meta-row">
+      <span class="chip">Excelの表</span>
+      <span class="plus">＋</span>
+      <span class="chip">連絡ノート</span>
+      <span class="plus">＋</span>
+      <span class="chip">アンケート用紙</span>
+      <span class="eq">＝</span>
+      <span class="chip result">kintone（スマホでも使える）</span>
+    </div>
+    <div class="point" style="margin-top:16px;">
+      しかも、<strong>入力したデータは自動で集計・グラフ化</strong>。<strong>みんなでリアルタイム共有</strong>でき、<strong>パソコンでもスマホでもタブレットでも</strong>同じ情報を見られます。紙のように「探す・なくす・転記する」がなくなります。
+    </div>
+  </div>
+
+  <!-- 2. なぜ今 -->
+  <div class="sec">
+    <div class="sec-head">
+      <div class="ico" style="background:var(--amber-soft)"><svg viewBox="0 0 24 24" style="stroke:var(--amber)"><path d="M12 3v2M5 6l1.5 1.5M3 12h2M19 6l-1.5 1.5M21 12h-2"/><circle cx="12" cy="14" r="5"/></svg></div>
+      <h2>なぜ今、kintoneなの？<span class="en">WHY NOW</span></h2>
+    </div>
+    <p style="margin-bottom:10px;">いまの「紙・Excel・口頭」には、こんな“もったいない”が隠れています。</p>
+    <div class="grid g3">
+      <div class="feat"><h3>探す手間</h3><p>あの記録どこ？ カルテを持って先生を探し回る…</p></div>
+      <div class="feat"><h3>転記・清書</h3><p>紙からExcelへ書き写し。ミスも起きるし時間もかかる。</p></div>
+      <div class="feat"><h3>バラバラ</h3><p>人によって情報が違う。シフトをまたぐと申し送りが消える。</p></div>
+    </div>
+    <div class="callout" style="margin-top:14px;">
+      当院は将来、<strong>電子カルテ</strong>を導入予定です。その前に、<strong>カルテに入らない院内業務（病棟運営・記録・申し送り・委員会など）をkintoneで整える</strong>ことで、現場の負担を先に軽くします。まずは<strong>新しいリハビリ病棟から、小さく</strong>始めます。
+    </div>
+  </div>
+
+  <!-- 3. できること -->
+  <div class="sec">
+    <div class="sec-head">
+      <div class="ico" style="background:var(--teal-soft)"><svg viewBox="0 0 24 24" style="stroke:var(--teal)"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
+      <h2>kintoneでできること<span class="en">WHAT IT CAN DO</span></h2>
+    </div>
+    <div class="grid g3">
+      <div class="feat"><div class="ft-ico"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div><h3>記録をためる</h3><p>紙やExcelの台帳をそのままデジタルに。</p></div>
+      <div class="feat"><div class="ft-ico"><svg viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M11 18h2"/></svg></div><h3>スマホ・タブで入力</h3><p>選ぶだけ・タップだけ。現場でその場で記録。</p></div>
+      <div class="feat"><div class="ft-ico"><svg viewBox="0 0 24 24"><path d="M4 19V5M4 19h16M8 16v-4M12 16V8M16 16v-7"/></svg></div><h3>自動で集計・グラフ</h3><p>月別・部署別の集計が“ワンクリック”。</p></div>
+      <div class="feat"><div class="ft-ico"><svg viewBox="0 0 24 24"><path d="M5 12l4 4L19 6"/></svg></div><h3>申請・承認</h3><p>残業・研修・物品購入などをデジタルで回す。</p></div>
+      <div class="feat"><div class="ft-ico"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><h3>共有・コメント</h3><p>チームで同じ情報。気づきをその場で書き込み。</p></div>
+      <div class="feat"><div class="ft-ico"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M10 21h4"/></svg></div><h3>通知・お知らせ</h3><p>「採血が届きました」などを自動でお知らせ。</p></div>
+      <div class="feat"><div class="ft-ico"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div><h3>見せる人を選べる</h3><p>「この情報はこの職種だけ」と細かく設定。</p></div>
+      <div class="feat"><div class="ft-ico"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 4v5h5"/></svg></div><h3>履歴が残る</h3><p>だれが・いつ・何を変えたか自動で記録。</p></div>
+      <div class="feat"><div class="ft-ico"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3 2"/></svg></div><h3>あとから変えられる</h3><p>使いながら現場の声でどんどん改良できる。</p></div>
+    </div>
+  </div>
+
+  <!-- 4. 当院での使い方 -->
+  <div class="sec">
+    <div class="sec-head">
+      <div class="ico" style="background:var(--green-soft)"><svg viewBox="0 0 24 24" style="stroke:var(--green)"><path d="M19 14c1.5-1.5 3-3.5 3-6a4 4 0 0 0-7-2.5A4 4 0 0 0 8 8c0 2.5 1.5 4.5 3 6l4 4z"/></svg></div>
+      <h2>当院での使い方（リハ病棟）<span class="en">HOW WE USE IT — BEFORE → AFTER</span></h2>
+    </div>
+    <p style="margin-bottom:6px;">いま困っていることが、こう変わります。</p>
+
+    <div class="ba">
+      <div class="ba-top"><span class="ba-num">1</span><h3>病床管理・重症度の把握</h3></div>
+      <div class="ba-body">
+        <div class="ba-col before"><div class="lbl">いま</div><p>Excelで手作業。稼働状況は頭の中。集計に時間がかかる。</p></div>
+        <div class="ba-arrow"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        <div class="ba-col after"><div class="lbl">kintoneで</div><p>入力すると画面で自動集計。空き状況や重症度が“ひと目”で分かる。</p></div>
+      </div>
+    </div>
+
+    <div class="ba">
+      <div class="ba-top"><span class="ba-num">2</span><h3>患者さんの評価（PROMsなど）</h3></div>
+      <div class="ba-body">
+        <div class="ba-col before"><div class="lbl">いま</div><p>紙アンケート → 手で入力 → Excel集計。書き写しミスや紛失も。</p></div>
+        <div class="ba-arrow"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        <div class="ba-col after"><div class="lbl">kintoneで</div><p>タブレットで直接入力。集計・グラフは自動。書き写しゼロ。</p></div>
+      </div>
+    </div>
+
+    <div class="ba" style="border-color:var(--amber);">
+      <div class="ba-top" style="background:var(--amber-soft);"><span class="ba-num" style="background:var(--amber);">3</span><h3>朝の採血結果 “到着のお知らせ”</h3><span class="tag">いちばん効果が大きい</span></div>
+      <div class="ba-body">
+        <div class="ba-col before"><div class="lbl">いま</div><p>看護師がカルテを持って、外来診察中の先生を探し回る。伝え漏れ・遅れも。</p></div>
+        <div class="ba-arrow"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        <div class="ba-col after"><div class="lbl">kintoneで</div><p>到着を1件登録 → 先生のスマホにお知らせ。先生は手すきに確認し、詳しくは外来PCで見る。<strong>探し回りがなくなる。</strong></p></div>
+      </div>
+    </div>
+
+    <div class="ba">
+      <div class="ba-top"><span class="ba-num">4</span><h3>スタッフ間の情報共有・申し送り</h3></div>
+      <div class="ba-body">
+        <div class="ba-col before"><div class="lbl">いま</div><p>紙の申し送り・口頭。シフトをまたぐと情報が消えることも。</p></div>
+        <div class="ba-arrow"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        <div class="ba-col after"><div class="lbl">kintoneで</div><p>患者さんの情報・進捗をみんなで共有。履歴も自動で残る。</p></div>
+      </div>
+    </div>
+
+    <div class="ba">
+      <div class="ba-top"><span class="ba-num">5</span><h3>会議・カンファレンスの記録</h3></div>
+      <div class="ba-body">
+        <div class="ba-col before"><div class="lbl">いま</div><p>手書きメモ → あとで清書 → 配布。記録係の負担が大きい。</p></div>
+        <div class="ba-arrow"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        <div class="ba-col after"><div class="lbl">kintoneで</div><p>音声入力で議事録を自動保存・共有（看護師長が試行中）。清書いらず。</p></div>
+      </div>
+    </div>
+
+    <div class="ba">
+      <div class="ba-top"><span class="ba-num">6</span><h3>「どれだけ時間がかかっているか」の記録</h3></div>
+      <div class="ba-body">
+        <div class="ba-col before"><div class="lbl">いま</div><p>「忙しい」という実感はあるけど、数字（証拠）がない。</p></div>
+        <div class="ba-arrow"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        <div class="ba-col after"><div class="lbl">kintoneで</div><p>業務時間を記録・集計。改善の効果が数字で見える＝働きやすさの改善につながる。</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. FAQ -->
+  <div class="sec">
+    <div class="sec-head">
+      <div class="ico" style="background:var(--rose-soft)"><svg viewBox="0 0 24 24" style="stroke:var(--rose)"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.8.4-1 .9-1 1.7"/><path d="M12 17h.01"/></svg></div>
+      <h2>よくある不安・ギモン<span class="en">FAQ</span></h2>
+    </div>
+
+    <div class="faq"><div class="q"><span class="mark">Q.</span>パソコンが苦手でも使えますか？</div>
+      <div class="a"><span class="mark">A.</span>大丈夫です。スマホのアプリのように<strong>タップ・選ぶだけ</strong>で入力できます。難しい文字入力は少なく、よく使う項目はボタンで選べます。</div></div>
+
+    <div class="faq"><div class="q"><span class="mark">Q.</span>仕事が増えるのでは？</div>
+      <div class="a"><span class="mark">A.</span>逆です。<strong>探す・書き写す・清書する手間が減ります。</strong>入力は今より早く・1回で済み、集計は自動。トータルでは時間が浮きます。</div></div>
+
+    <div class="faq"><div class="q"><span class="mark">Q.</span>入力が面倒になりそう…</div>
+      <div class="a"><span class="mark">A.</span>選択肢ボタン・<strong>音声入力</strong>・タブレットを活用します。「最小の入力で、最大の共有」になるよう、現場と一緒に画面を作ります。</div></div>
+
+    <div class="faq"><div class="q"><span class="mark">Q.</span>患者さんの情報は安全ですか？</div>
+      <div class="a"><span class="mark">A.</span>kintoneは<strong>国内のデータセンター</strong>で厳重に管理され、<strong>見られる人を職種ごとに制限</strong>でき、<strong>操作の履歴も残ります</strong>。さらに当院では<strong>私物スマホのお知らせに患者さんのお名前や検査値は出さない</strong>（詳細は院内PCで確認する）ルールにします。</div></div>
+
+    <div class="faq"><div class="q"><span class="mark">Q.</span>今までのExcelはムダになりますか？</div>
+      <div class="a"><span class="mark">A.</span>なりません。<strong>Excelのデータは取り込めます。</strong>これまでの蓄積を活かして移行できます。</div></div>
+
+    <div class="faq"><div class="q"><span class="mark">Q.</span>覚えるのが大変そう…</div>
+      <div class="a"><span class="mark">A.</span>一気に全部はやりません。<strong>まずは1つの業務だけ</strong>から。慣れてから少しずつ増やします。使い方の研修・サポートもあります。</div></div>
+
+    <div class="faq"><div class="q"><span class="mark">Q.</span>間違えて消してしまったら？</div>
+      <div class="a"><span class="mark">A.</span><strong>変更の履歴が自動で残る</strong>ので確認できます。また、大事なデータは権限設定で守ります。</div></div>
+  </div>
+
+  <!-- 6. 1日のイメージ -->
+  <div class="sec">
+    <div class="sec-head">
+      <div class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+      <h2>使い始めると、ある日の流れは？<span class="en">A DAY WITH KINTONE</span></h2>
+    </div>
+    <div class="story">
+      <div class="it"><div class="t">朝</div><div class="d">採血が届いたら看護師が1件タップ。担当医のスマホに「到着しました」。先生は外来の合間に確認 → <strong>カルテを持って探し回らない。</strong></div></div>
+      <div class="it"><div class="t">日中</div><div class="d">リハの評価はタブレットでその場入力。<strong>あとでExcelに書き写す作業がなくなる。</strong></div></div>
+      <div class="it"><div class="t">申し送り</div><div class="d">画面を見れば最新の状況が分かる。シフトが替わっても<strong>情報が途切れない。</strong></div></div>
+      <div class="it"><div class="t">カンファ</div><div class="d">話した内容は音声入力で議事録に。<strong>清書ゼロ、すぐ共有。</strong></div></div>
+      <div class="it"><div class="t">気づけば</div><div class="d">「探す・書き写す・清書する」時間が減って、<strong>患者さんと向き合う時間が増える。</strong></div></div>
+    </div>
+  </div>
+
+  <!-- 7. セキュリティ -->
+  <div class="sec">
+    <div class="sec-head">
+      <div class="ico" style="background:var(--green-soft)"><svg viewBox="0 0 24 24" style="stroke:var(--green)"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
+      <h2>安心して使うために<span class="en">SECURITY</span></h2>
+    </div>
+    <ul class="slist">
+      <li><span class="ck"><svg viewBox="0 0 24 24"><path d="M5 12l4 4L19 6"/></svg></span><div><strong>国内のデータセンター</strong>で管理。バックアップも自動。</div></li>
+      <li><span class="ck"><svg viewBox="0 0 24 24"><path d="M5 12l4 4L19 6"/></svg></span><div><strong>見られる人を職種・役割ごとに制限</strong>できる。</div></li>
+      <li><span class="ck"><svg viewBox="0 0 24 24"><path d="M5 12l4 4L19 6"/></svg></span><div><strong>操作の履歴（だれが・いつ・何を）</strong>が残る。</div></li>
+      <li><span class="ck"><svg viewBox="0 0 24 24"><path d="M5 12l4 4L19 6"/></svg></span><div>ログインを<strong>二段階認証</strong>などで守れる。</div></li>
+      <li><span class="ck"><svg viewBox="0 0 24 24"><path d="M5 12l4 4L19 6"/></svg></span><div>私物スマホは<strong>「お知らせを受け取るだけ」</strong>。患者さんの名前・検査値は表示しない運用。</div></li>
+    </ul>
+    <div class="callout" style="margin-top:14px;">
+      <strong>みんなで守るお願い：</strong>IDとパスワードは他人に教えない／離席するときは画面をロック／患者さんの情報は決められた場所だけに入力する。この3つだけ守ってください。
+    </div>
+  </div>
+
+  <!-- 8. これから -->
+  <div class="sec">
+    <div class="sec-head">
+      <div class="ico" style="background:var(--blue-soft)"><svg viewBox="0 0 24 24"><path d="M3 12h13M12 5l7 7-7 7"/></svg></div>
+      <h2>これからの進め方<span class="en">ROADMAP</span></h2>
+    </div>
+    <div class="point">
+      <strong>① まずリハ病棟で、小さく始めます。</strong>（採血のお知らせ・病床管理から）<br>
+      <strong>② うまくいったら、ほかの業務・部署へ広げます。</strong><br>
+      <strong>③ アプリは“使いながら育てます”。</strong>「ここが使いにくい」「こうしたい」という<u>みなさんの声がいちばんの改良材料</u>です。
+    </div>
+    <p style="margin-top:14px;font-weight:700;text-align:center;font-size:15px;color:var(--teal);">
+      「やらされる」ではなく「自分たちの仕事をラクにする」道具に。<br>気づいたこと・困っていることを、ぜひ教えてください。
+    </p>
+  </div>
+
+  <!-- 9. 相談先 -->
+  <div class="sec">
+    <div class="sec-head">
+      <div class="ico" style="background:var(--teal-soft)"><svg viewBox="0 0 24 24" style="stroke:var(--teal)"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M21 21v-2a4 4 0 0 0-3-3.8"/></svg></div>
+      <h2>わからないこと・相談は<span class="en">CONTACT</span></h2>
+    </div>
+    <div class="contact">
+      <div class="pcard"><div class="role">全体・なんでも相談</div><div class="nm">飯尾 医師（医局長）</div><div class="ds">方向性・困りごとの相談</div></div>
+      <div class="pcard"><div class="role">病棟の使い方</div><div class="nm">リハ病棟 看護師長</div><div class="ds">現場の運用・音声入力</div></div>
+      <div class="pcard"><div class="role">アプリの中身</div><div class="nm">若手リハビリ医師</div><div class="ds">画面づくり・改良の窓口</div></div>
+    </div>
+  </div>
+
+  <footer>
+    弘前メモリアル病院 スタッフ向け kintone かんたんガイド ／ 内容は導入準備段階のものです。詳細は決まり次第お知らせします。
+  </footer>
+
+</div>
+</body>
+</html>

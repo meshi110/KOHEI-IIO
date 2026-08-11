@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>安全性を守る「データの流れ・権限・デバイス」｜弘前メモリアル病院</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
+  :root{
+    --ink:#243042;--muted:#5b6b7e;--line:#dfe6ee;--paper:#f4f7fa;
+    --blue:#1466b0;--blue-soft:#e9f2fb;
+    --teal:#0e9384;--teal-soft:#dff5f1;
+    --green:#1a9b54;--green-soft:#e3f6ec;
+    --amber:#c9760a;--amber-soft:#fdf1df;
+    --purple:#7c3aed;--purple-soft:#f2ebfa;
+    --rose:#d23f57;--rose-soft:#fdeaed;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:'Noto Sans JP',"Hiragino Sans","Yu Gothic",sans-serif;
+    color:var(--ink);background:var(--paper);line-height:1.75;font-size:13px;
+    -webkit-print-color-adjust:exact;print-color-adjust:exact;
+  }
+  .wrap{max-width:920px;margin:22px auto;padding:0 16px;}
+
+  .hero{
+    background:linear-gradient(135deg,#1466b0,#0e9384);color:#fff;
+    border-radius:16px;padding:28px 32px;box-shadow:0 8px 26px rgba(20,102,176,.2);position:relative;overflow:hidden;
+  }
+  .hero::after{content:'';position:absolute;right:-40px;bottom:-60px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.08);}
+  .hero .eb{font-size:11px;letter-spacing:.2em;font-weight:700;opacity:.85;}
+  .hero h1{font-size:24px;font-weight:900;margin:6px 0 4px;letter-spacing:.02em;}
+  .hero p{font-size:13px;opacity:.95;max-width:640px;}
+
+  .sec{background:#fff;border-radius:14px;padding:22px 26px;margin:16px 0;box-shadow:0 2px 12px rgba(36,48,66,.06);page-break-inside:avoid;}
+  .sec-head{display:flex;align-items:baseline;gap:10px;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid var(--blue-soft);}
+  .sec-head .no{font-size:11px;letter-spacing:.15em;font-weight:800;color:var(--teal);}
+  .sec h2{font-size:18px;font-weight:900;color:var(--blue);}
+  .sec h2 small{font-size:12px;color:var(--muted);font-weight:500;margin-left:8px;}
+
+  /* Principles */
+  .princ{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+  .p{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:#fcfdff;}
+  .p .num{display:inline-flex;width:26px;height:26px;border-radius:50%;background:var(--teal);color:#fff;font-weight:900;align-items:center;justify-content:center;font-size:13px;margin-bottom:6px;}
+  .p h3{font-size:14px;font-weight:800;color:var(--teal);margin-bottom:4px;}
+  .p p{font-size:12.5px;color:var(--ink);line-height:1.65;}
+
+  /* Diagram */
+  .diag{width:100%;height:auto;display:block;margin:0 auto;}
+  .caption{font-size:11px;color:var(--muted);text-align:center;margin-top:6px;font-style:italic;}
+
+  .legend{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:12px;font-size:11.5px;}
+  .legend .k{display:inline-flex;align-items:center;gap:5px;}
+  .legend .sw{width:14px;height:14px;border-radius:3px;border:1px solid rgba(0,0,0,.15);}
+
+  /* Permission matrix */
+  table.perm{width:100%;border-collapse:separate;border-spacing:0;font-size:12px;}
+  table.perm th{background:var(--blue);color:#fff;padding:8px 6px;text-align:center;font-weight:700;font-size:11.5px;}
+  table.perm th:first-child{text-align:left;padding-left:12px;background:#0d4d84;}
+  table.perm td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:center;font-size:11.5px;font-weight:700;}
+  table.perm td:first-child{text-align:left;padding-left:12px;background:var(--paper);font-weight:800;color:var(--ink);}
+  .lv-full{background:#0d4d84;color:#fff;}
+  .lv-edit{background:#2a86d6;color:#fff;}
+  .lv-view{background:#c8dff5;color:#0d4d84;}
+  .lv-part{background:#f5e6c8;color:#7a4a06;}
+  .lv-none{background:#f4f7fa;color:#94a3b8;}
+  .plegend{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;font-size:11px;color:var(--muted);}
+  .plegend span{padding:2px 8px;border-radius:6px;font-weight:700;}
+
+  /* Devices */
+  .devs{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+  .dev{border:1px solid var(--line);border-radius:12px;padding:14px;background:#fcfdff;position:relative;}
+  .dev.byod{border-color:var(--amber);background:var(--amber-soft);}
+  .dev .zn{position:absolute;top:10px;right:10px;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;background:var(--teal);color:#fff;}
+  .dev.byod .zn{background:var(--amber);}
+  .dev h3{font-size:14px;font-weight:800;color:var(--blue);margin-bottom:2px;}
+  .dev .cnt{font-size:11px;color:var(--muted);margin-bottom:8px;}
+  .dev ul{list-style:none;font-size:11.5px;line-height:1.6;}
+  .dev ul li{position:relative;padding-left:14px;padding-bottom:2px;}
+  .dev ul li::before{content:'▍';position:absolute;left:0;top:1px;color:var(--teal);font-size:9px;}
+  .dev.byod ul li::before{color:var(--amber);}
+
+  /* Anonymization steps */
+  .steps{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;position:relative;}
+  .step{border:1px solid var(--line);border-radius:10px;padding:12px 10px;background:#fcfdff;position:relative;}
+  .step .n{display:flex;align-items:center;gap:6px;margin-bottom:5px;}
+  .step .n .dot{width:22px;height:22px;border-radius:50%;background:var(--purple);color:#fff;font-weight:900;display:flex;align-items:center;justify-content:center;font-size:11px;}
+  .step h4{font-size:12px;font-weight:800;color:var(--purple);}
+  .step p{font-size:11px;line-height:1.55;color:var(--ink);}
+  .step:not(:last-child)::after{
+    content:'';position:absolute;right:-8px;top:50%;transform:translateY(-50%);
+    width:0;height:0;border-left:8px solid var(--purple);border-top:6px solid transparent;border-bottom:6px solid transparent;
+    z-index:2;
+  }
+
+  /* Rules */
+  .rules{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .rules .r{border-left:4px solid var(--teal);background:var(--teal-soft);padding:10px 14px;border-radius:0 8px 8px 0;font-size:12.5px;line-height:1.7;}
+  .rules .r.warn{border-left-color:var(--rose);background:var(--rose-soft);}
+  .rules .r strong{color:var(--blue);}
+  .rules .r.warn strong{color:var(--rose);}
+
+  /* Incident */
+  .inc{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+  .inc .card{border:1px solid var(--line);border-radius:12px;padding:14px;background:#fcfdff;}
+  .inc h3{font-size:13.5px;font-weight:800;color:var(--rose);margin-bottom:6px;}
+  .inc ol{padding-left:18px;font-size:12px;line-height:1.65;}
+
+  footer{text-align:center;font-size:11px;color:var(--muted);margin:16px 0 26px;}
+
+  @media print{
+    body{background:#fff;}
+    .wrap{margin:0;padding:0;max-width:none;}
+    .sec,.hero{box-shadow:none;}
+    .sec{border:1px solid var(--line);}
+    @page{size:A4 portrait;margin:10mm;}
+  }
+  @media(max-width:720px){
+    .princ,.devs,.inc,.rules{grid-template-columns:1fr;}
+    .steps{grid-template-columns:1fr;}
+    .step:not(:last-child)::after{display:none;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="eb">SECURITY / DATA FLOW / PERMISSIONS</div>
+    <h1>安全に守る「データの流れ・権限・デバイス」</h1>
+    <p>患者情報を守りながらkintoneを使うための考え方。誰が・どこで・何を触るか、どこで匿名化するかを図で整理しています。</p>
+  </div>
+
+  <!-- 大原則 -->
+  <div class="sec">
+    <div class="sec-head"><span class="no">PRINCIPLES</span><h2>大原則 ― この3つだけ守ればOK</h2></div>
+    <div class="princ">
+      <div class="p">
+        <div class="num">1</div>
+        <h3>データは3層に分ける</h3>
+        <p>①電子カルテ（将来／診療情報の正本）／②kintone（院内業務）／③外部（BYOD通知・AI）。<strong>層をまたぐ時は必ず匿名化</strong>。</p>
+      </div>
+      <div class="p">
+        <div class="num">2</div>
+        <h3>私物スマホは「通知だけ」</h3>
+        <p>BYODには<strong>患者名・検査値を出さない</strong>。「303号室 採血到着」のようなシグナルのみ。詳細は院内PCで見る。</p>
+      </div>
+      <div class="p">
+        <div class="num">3</div>
+        <h3>権限は職種ごとに最小限</h3>
+        <p>必要な人が、必要な情報だけを、必要な時間だけ。<strong>操作履歴は自動で残る</strong>（誰が・いつ・何を）。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- FIGURE 1: Zone diagram -->
+  <div class="sec">
+    <div class="sec-head"><span class="no">FIGURE 1</span><h2>データの流れ<small>どこに置き・どこへ渡すか／匿名化はどこで起きるか</small></h2></div>
+
+    <svg class="diag" viewBox="0 0 900 590" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="ar-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#0e9384"/>
+        </marker>
+        <marker id="ar-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#7c3aed"/>
+        </marker>
+      </defs>
+
+      <!-- 電子カルテ note (top-right) -->
+      <g>
+        <rect x="620" y="8" width="270" height="40" rx="6" fill="#eef1f5" stroke="#94a3b8" stroke-dasharray="4 3"/>
+        <text x="755" y="26" text-anchor="middle" font-size="11" fill="#334155" font-weight="700">電子カルテ領域（将来）─ 診療情報の正本</text>
+        <text x="755" y="41" text-anchor="middle" font-size="10" fill="#64748b">kintoneとは別／診療情報はこちらに置く</text>
+      </g>
+
+      <!-- 院内セキュアゾーン -->
+      <rect x="20" y="68" width="490" height="510" rx="10" fill="#eef4fa" stroke="#1466b0" stroke-width="2"/>
+      <rect x="20" y="68" width="490" height="30" rx="10" fill="#1466b0"/>
+      <text x="265" y="88" text-anchor="middle" font-size="13" fill="#fff" font-weight="700">院内セキュアゾーン ─ 院内Wi-Fi ＋ 認証（2要素）</text>
+
+      <!-- Devices row -->
+      <text x="35" y="120" font-size="11" font-weight="800" fill="#1466b0">■ 使うデバイス（院内）</text>
+      <g font-size="10.5">
+        <rect x="35" y="128" width="150" height="70" rx="6" fill="#fff" stroke="#dfe6ee"/>
+        <text x="110" y="147" text-anchor="middle" font-size="11" font-weight="800">院内ノートPC ×3</text>
+        <text x="110" y="163" text-anchor="middle" fill="#5b6b7e">ナース／外来リハ／病棟リハ</text>
+        <text x="110" y="178" text-anchor="middle" fill="#5b6b7e">認証必須／持ち出し禁止</text>
+
+        <rect x="192" y="128" width="150" height="70" rx="6" fill="#fff" stroke="#dfe6ee"/>
+        <text x="267" y="147" text-anchor="middle" font-size="11" font-weight="800">Androidタブレット ×3</text>
+        <text x="267" y="163" text-anchor="middle" fill="#5b6b7e">MDM管理／院内Wi-Fi限定</text>
+        <text x="267" y="178" text-anchor="middle" fill="#5b6b7e">キャッシュ非保持</text>
+
+        <rect x="349" y="128" width="146" height="70" rx="6" fill="#fff" stroke="#dfe6ee"/>
+        <text x="422" y="147" text-anchor="middle" font-size="11" font-weight="800">既存PC（医局／手術室）</text>
+        <text x="422" y="163" text-anchor="middle" fill="#5b6b7e">閲覧・書類作業に流用</text>
+        <text x="422" y="178" text-anchor="middle" fill="#5b6b7e">認証必須</text>
+      </g>
+
+      <!-- kintone -->
+      <rect x="35" y="215" width="460" height="240" rx="8" fill="#fff" stroke="#0e9384" stroke-width="2"/>
+      <rect x="35" y="215" width="460" height="28" rx="8" fill="#0e9384"/>
+      <text x="265" y="234" text-anchor="middle" font-size="12" fill="#fff" font-weight="800">kintone ─ 院内業務データベース</text>
+
+      <g font-size="11" text-anchor="middle" font-weight="700">
+        <rect x="50" y="256" width="105" height="42" rx="5" fill="#e9f2fb" stroke="#1466b0"/>
+        <text x="102" y="281">病床管理</text>
+        <rect x="163" y="256" width="105" height="42" rx="5" fill="#e9f2fb" stroke="#1466b0"/>
+        <text x="215" y="281">PROMs評価</text>
+        <rect x="276" y="256" width="105" height="42" rx="5" fill="#e9f2fb" stroke="#1466b0"/>
+        <text x="328" y="275">採血結果</text>
+        <text x="328" y="289">到着登録</text>
+        <rect x="389" y="256" width="90" height="42" rx="5" fill="#e9f2fb" stroke="#1466b0"/>
+        <text x="434" y="281">議事録</text>
+
+        <rect x="50" y="306" width="105" height="42" rx="5" fill="#e9f2fb" stroke="#1466b0"/>
+        <text x="102" y="325">情報共有</text>
+        <text x="102" y="338" font-size="9" font-weight="500">申し送り</text>
+        <rect x="163" y="306" width="105" height="42" rx="5" fill="#e9f2fb" stroke="#1466b0"/>
+        <text x="215" y="325">業務時間記録</text>
+        <rect x="276" y="306" width="203" height="42" rx="5" fill="#f8fafc" stroke="#dfe6ee" stroke-dasharray="3 2"/>
+        <text x="378" y="325" fill="#64748b" font-weight="600">＋現場の声で追加</text>
+        <text x="378" y="338" fill="#64748b" font-size="9" font-weight="500">（内製で拡張可）</text>
+      </g>
+
+      <text x="265" y="374" text-anchor="middle" font-size="11" fill="#243042" font-weight="700">
+        含む：患者ID／病室／業務データ
+      </text>
+      <text x="265" y="391" text-anchor="middle" font-size="11" fill="#b91c1c" font-weight="800">
+        含まない：診療の詳細（電子カルテ側）
+      </text>
+      <text x="265" y="410" text-anchor="middle" font-size="10" fill="#5b6b7e">
+        すべての操作は「だれが・いつ・何を」自動記録／権限は職種・レコード・フィールド単位
+      </text>
+      <text x="265" y="430" text-anchor="middle" font-size="10" fill="#5b6b7e">
+        患者氏名を扱う場合は氏名フィールドを分離し、閲覧できる職種を限定
+      </text>
+
+      <!-- Roles -->
+      <text x="35" y="480" font-size="11" font-weight="800" fill="#1466b0">■ 使う人（職種）</text>
+      <g font-size="10.5" text-anchor="middle" font-weight="700">
+        <rect x="35" y="488" width="88" height="30" rx="15" fill="#e9f2fb" stroke="#1466b0"/>
+        <text x="79" y="508">担当医</text>
+        <rect x="131" y="488" width="88" height="30" rx="15" fill="#e9f2fb" stroke="#1466b0"/>
+        <text x="175" y="508">看護師</text>
+        <rect x="227" y="488" width="88" height="30" rx="15" fill="#e9f2fb" stroke="#1466b0"/>
+        <text x="271" y="508">リハスタッフ</text>
+        <rect x="323" y="488" width="80" height="30" rx="15" fill="#e9f2fb" stroke="#1466b0"/>
+        <text x="363" y="508">事務</text>
+        <rect x="411" y="488" width="82" height="30" rx="15" fill="#0e9384" stroke="#0e9384"/>
+        <text x="452" y="508" fill="#fff">管理者</text>
+      </g>
+      <text x="265" y="545" text-anchor="middle" font-size="10" fill="#5b6b7e">
+        職種ごとに「見える／編集できる／設定できる」を分ける（→ 図2の権限マトリクス）
+      </text>
+      <text x="265" y="560" text-anchor="middle" font-size="10" fill="#5b6b7e" font-style="italic">
+        管理者＝院内2〜3名（アカウント発行・権限設計・監査）
+      </text>
+
+      <!-- Gate -->
+      <rect x="525" y="68" width="82" height="510" rx="10" fill="#fdf1df" stroke="#c9760a" stroke-width="2"/>
+      <text x="566" y="90" text-anchor="middle" font-size="12" fill="#c9760a" font-weight="800">匿名化</text>
+      <text x="566" y="106" text-anchor="middle" font-size="12" fill="#c9760a" font-weight="800">ゲート</text>
+      <line x1="525" y1="320" x2="607" y2="320" stroke="#c9760a" stroke-dasharray="4 3"/>
+
+      <!-- Gate upper: signal -->
+      <g>
+        <text x="566" y="155" text-anchor="middle" font-size="11" fill="#c9760a" font-weight="800">シグナル化</text>
+        <text x="566" y="182" text-anchor="middle" font-size="10" fill="#7a4a06">患者名・値を消す</text>
+        <text x="566" y="200" text-anchor="middle" font-size="10" fill="#7a4a06">→ 病室番号のみ</text>
+        <text x="566" y="218" text-anchor="middle" font-size="10" fill="#7a4a06">通知として送る</text>
+        <text x="566" y="248" text-anchor="middle" font-size="9" fill="#c9760a" font-weight="700">例）「303号室</text>
+        <text x="566" y="263" text-anchor="middle" font-size="9" fill="#c9760a" font-weight="700">採血 到着」のみ</text>
+      </g>
+      <!-- Gate lower: pseudo -->
+      <g>
+        <text x="566" y="360" text-anchor="middle" font-size="11" fill="#c9760a" font-weight="800">仮名化</text>
+        <text x="566" y="385" text-anchor="middle" font-size="10" fill="#7a4a06">患者ID → 仮名</text>
+        <text x="566" y="402" text-anchor="middle" font-size="10" fill="#7a4a06">（Case001）</text>
+        <text x="566" y="420" text-anchor="middle" font-size="10" fill="#7a4a06">固有名詞は</text>
+        <text x="566" y="436" text-anchor="middle" font-size="10" fill="#7a4a06">マスク</text>
+        <text x="566" y="464" text-anchor="middle" font-size="9" fill="#c9760a" font-weight="700">例）氏名・住所・</text>
+        <text x="566" y="479" text-anchor="middle" font-size="9" fill="#c9760a" font-weight="700">日付を伏せる</text>
+      </g>
+
+      <!-- Right zones -->
+      <!-- BYOD -->
+      <rect x="622" y="68" width="258" height="245" rx="10" fill="#dff5f1" stroke="#0e9384" stroke-width="2"/>
+      <rect x="622" y="68" width="258" height="28" rx="10" fill="#0e9384"/>
+      <text x="751" y="88" text-anchor="middle" font-size="12" fill="#fff" font-weight="800">BYOD 通知ゾーン</text>
+      <text x="751" y="115" text-anchor="middle" font-size="11" fill="#0a5e55" font-weight="700">スタッフの私物スマホ</text>
+
+      <!-- Phone -->
+      <g>
+        <rect x="695" y="125" width="112" height="150" rx="12" fill="#fff" stroke="#0e9384" stroke-width="1.5"/>
+        <rect x="705" y="140" width="92" height="72" rx="4" fill="#eef8f6"/>
+        <text x="751" y="160" text-anchor="middle" font-size="9" font-weight="800" fill="#0a5e55">お知らせ</text>
+        <text x="751" y="178" text-anchor="middle" font-size="12" font-weight="900" fill="#243042">303号室</text>
+        <text x="751" y="196" text-anchor="middle" font-size="12" font-weight="900" fill="#243042">採血 到着</text>
+        <text x="751" y="208" text-anchor="middle" font-size="8" fill="#5b6b7e">09:24</text>
+        <circle cx="751" cy="252" r="14" fill="#0e9384"/>
+        <text x="751" y="256" text-anchor="middle" font-size="9" fill="#fff" font-weight="800">✓</text>
+      </g>
+      <text x="751" y="293" text-anchor="middle" font-size="10" fill="#b91c1c" font-weight="800">患者名・値なし／受信のみ</text>
+      <text x="751" y="307" text-anchor="middle" font-size="10" fill="#5b6b7e">詳細は院内Wi-Fi＋PCで確認</text>
+
+      <!-- AI -->
+      <rect x="622" y="325" width="258" height="253" rx="10" fill="#f2ebfa" stroke="#7c3aed" stroke-width="2"/>
+      <rect x="622" y="325" width="258" height="28" rx="10" fill="#7c3aed"/>
+      <text x="751" y="345" text-anchor="middle" font-size="12" fill="#fff" font-weight="800">外部AI連携ゾーン（将来）</text>
+      <text x="751" y="373" text-anchor="middle" font-size="11" fill="#5b21b6" font-weight="700">生成AI（Gemini 等）</text>
+
+      <g>
+        <rect x="670" y="385" width="162" height="110" rx="8" fill="#fff" stroke="#7c3aed" stroke-width="1.5"/>
+        <circle cx="751" cy="425" r="22" fill="#f2ebfa" stroke="#7c3aed" stroke-width="1.5"/>
+        <text x="751" y="431" text-anchor="middle" font-size="14" fill="#7c3aed" font-weight="900">AI</text>
+        <text x="751" y="465" text-anchor="middle" font-size="10" fill="#5b21b6" font-weight="800">要約・下書き用途</text>
+        <text x="751" y="480" text-anchor="middle" font-size="9" fill="#5b21b6">仮名データのみ入力</text>
+      </g>
+      <text x="751" y="515" text-anchor="middle" font-size="10" fill="#b91c1c" font-weight="800">個人が特定される情報は渡さない</text>
+      <text x="751" y="530" text-anchor="middle" font-size="10" fill="#5b6b7e">法人契約でモデル学習に使わせない</text>
+      <text x="751" y="559" text-anchor="middle" font-size="10" fill="#5b6b7e" font-style="italic">導入は基盤運用が定着してから</text>
+
+      <!-- Flow arrows -->
+      <!-- upper: kintone → gate → BYOD -->
+      <path d="M 495 275 L 525 210" stroke="#0e9384" stroke-width="2.5" fill="none" marker-end="url(#ar-teal)"/>
+      <path d="M 607 200 L 622 190" stroke="#0e9384" stroke-width="2.5" fill="none" marker-end="url(#ar-teal)"/>
+      <text x="510" y="200" font-size="10" fill="#0e9384" font-weight="800">↑通知</text>
+
+      <!-- lower: kintone → gate → AI -->
+      <path d="M 495 355 L 525 410" stroke="#7c3aed" stroke-width="2.5" fill="none" marker-end="url(#ar-purple)"/>
+      <path d="M 607 425 L 622 425" stroke="#7c3aed" stroke-width="2.5" fill="none" marker-end="url(#ar-purple)"/>
+      <text x="510" y="450" font-size="10" fill="#7c3aed" font-weight="800">↓AI連携</text>
+    </svg>
+
+    <div class="legend">
+      <span class="k"><span class="sw" style="background:#eef4fa;border-color:#1466b0"></span>院内セキュアゾーン</span>
+      <span class="k"><span class="sw" style="background:#fdf1df;border-color:#c9760a"></span>匿名化ゲート</span>
+      <span class="k"><span class="sw" style="background:#dff5f1;border-color:#0e9384"></span>BYOD 通知ゾーン</span>
+      <span class="k"><span class="sw" style="background:#f2ebfa;border-color:#7c3aed"></span>外部AI連携ゾーン</span>
+      <span class="k"><span class="sw" style="background:#eef1f5;border:1px dashed #94a3b8"></span>電子カルテ（将来・別領域）</span>
+    </div>
+    <div class="caption">図1：kintoneには患者名など「最小限」しか置かず、外へ出すときは必ずゲートで匿名化する。</div>
+  </div>
+
+  <!-- FIGURE 2: Permission matrix -->
+  <div class="sec">
+    <div class="sec-head"><span class="no">FIGURE 2</span><h2>権限マトリクス<small>誰が・どこまで見られるか</small></h2></div>
+    <table class="perm">
+      <thead>
+        <tr>
+          <th>役割</th>
+          <th>病床管理</th>
+          <th>PROMs</th>
+          <th>採血通知</th>
+          <th>情報共有</th>
+          <th>議事録</th>
+          <th>業務時間</th>
+          <th>ユーザー管理</th>
+          <th>ログ監査</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>担当医（整形外科）</td>
+          <td class="lv-edit">編集</td>
+          <td class="lv-view">閲覧</td>
+          <td class="lv-view">受信・確認</td>
+          <td class="lv-edit">編集</td>
+          <td class="lv-view">閲覧</td>
+          <td class="lv-view">自分のみ</td>
+          <td class="lv-none">―</td>
+          <td class="lv-none">―</td>
+        </tr>
+        <tr>
+          <td>看護師（病棟）</td>
+          <td class="lv-edit">編集</td>
+          <td class="lv-view">閲覧</td>
+          <td class="lv-edit">登録・編集</td>
+          <td class="lv-edit">編集</td>
+          <td class="lv-edit">編集</td>
+          <td class="lv-view">自分のみ</td>
+          <td class="lv-none">―</td>
+          <td class="lv-none">―</td>
+        </tr>
+        <tr>
+          <td>リハスタッフ（PT/OT/ST）</td>
+          <td class="lv-view">閲覧</td>
+          <td class="lv-edit">登録・編集</td>
+          <td class="lv-none">―</td>
+          <td class="lv-edit">編集</td>
+          <td class="lv-view">閲覧</td>
+          <td class="lv-view">自分のみ</td>
+          <td class="lv-none">―</td>
+          <td class="lv-none">―</td>
+        </tr>
+        <tr>
+          <td>事務（総務・医事）</td>
+          <td class="lv-part">集計のみ</td>
+          <td class="lv-none">―</td>
+          <td class="lv-none">―</td>
+          <td class="lv-none">―</td>
+          <td class="lv-part">一部閲覧</td>
+          <td class="lv-part">集計のみ</td>
+          <td class="lv-none">―</td>
+          <td class="lv-none">―</td>
+        </tr>
+        <tr>
+          <td>看護師長・病棟責任者</td>
+          <td class="lv-edit">編集</td>
+          <td class="lv-view">閲覧</td>
+          <td class="lv-edit">編集</td>
+          <td class="lv-edit">編集</td>
+          <td class="lv-edit">編集</td>
+          <td class="lv-view">部署内</td>
+          <td class="lv-none">―</td>
+          <td class="lv-view">自部署</td>
+        </tr>
+        <tr>
+          <td>kintone管理者（2〜3名）</td>
+          <td class="lv-full">全権</td>
+          <td class="lv-full">全権</td>
+          <td class="lv-full">全権</td>
+          <td class="lv-full">全権</td>
+          <td class="lv-full">全権</td>
+          <td class="lv-full">全権</td>
+          <td class="lv-full">全権</td>
+          <td class="lv-full">全権</td>
+        </tr>
+        <tr>
+          <td>院長・事務長</td>
+          <td class="lv-view">閲覧</td>
+          <td class="lv-view">閲覧</td>
+          <td class="lv-none">―</td>
+          <td class="lv-view">閲覧</td>
+          <td class="lv-view">閲覧</td>
+          <td class="lv-view">全部署</td>
+          <td class="lv-none">―</td>
+          <td class="lv-view">閲覧</td>
+        </tr>
+        <tr>
+          <td>外部（生成AI・BYOD）</td>
+          <td class="lv-none">―</td>
+          <td class="lv-none">―</td>
+          <td class="lv-part">シグナル</td>
+          <td class="lv-none">―</td>
+          <td class="lv-none">―</td>
+          <td class="lv-none">―</td>
+          <td class="lv-none">―</td>
+          <td class="lv-none">―</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="plegend">
+      <span class="lv-full">全権</span>
+      <span class="lv-edit">編集</span>
+      <span class="lv-view">閲覧</span>
+      <span class="lv-part">限定</span>
+      <span class="lv-none">―（不可）</span>
+      <span style="color:var(--muted)">※ 患者氏名フィールドは「担当医・看護師・看護師長」のみ閲覧可の想定。</span>
+    </div>
+  </div>
+
+  <!-- FIGURE 3: Devices -->
+  <div class="sec">
+    <div class="sec-head"><span class="no">FIGURE 3</span><h2>必要なデバイスと役割<small>院内は認証・BYODは通知のみ</small></h2></div>
+    <div class="devs">
+      <div class="dev">
+        <span class="zn">院内</span>
+        <h3>院内ノートPC ×3</h3>
+        <div class="cnt">ナースS／外来リハ室／病棟リハ室</div>
+        <ul>
+          <li>院内Wi-Fi＋2要素認証</li>
+          <li>離席時は自動画面ロック</li>
+          <li>持ち出し禁止</li>
+          <li>kintone Web＋書類作業</li>
+        </ul>
+      </div>
+      <div class="dev">
+        <span class="zn">院内</span>
+        <h3>Androidタブレット ×3</h3>
+        <div class="cnt">PROMs 患者入力／スタッフ参照</div>
+        <ul>
+          <li>MDM 管理（紛失時 遠隔ロック/ワイプ）</li>
+          <li>院内Wi-Fi限定・外部通信ブロック</li>
+          <li>kintoneアプリのみ／キャッシュ非保持</li>
+          <li>患者入力後は即ログアウト</li>
+        </ul>
+      </div>
+      <div class="dev">
+        <span class="zn">院内</span>
+        <h3>既存PC（医局・手術室）</h3>
+        <div class="cnt">閲覧・書類作業に流用（追加費0）</div>
+        <ul>
+          <li>認証で流用</li>
+          <li>ブラウザキャッシュ最小化</li>
+          <li>USBメモリ持ち出し禁止</li>
+        </ul>
+      </div>
+      <div class="dev byod">
+        <span class="zn">BYOD</span>
+        <h3>スタッフ私物スマホ</h3>
+        <div class="cnt">③採血結果 到着通知の受信のみ</div>
+        <ul>
+          <li>受信は「病室番号＋事象」のみ</li>
+          <li>患者名・検査値は表示しない</li>
+          <li>詳細確認は院内PCで実施</li>
+          <li>退職時は通知配信先から削除</li>
+        </ul>
+      </div>
+      <div class="dev">
+        <span class="zn">院内</span>
+        <h3>院内Wi-Fi／Ethernet</h3>
+        <div class="cnt">既設インフラを活用</div>
+        <ul>
+          <li>院内ネットワーク（SSID分離推奨）</li>
+          <li>ゲスト用と業務用を分ける</li>
+          <li>ログは既設ルーターで取得</li>
+        </ul>
+      </div>
+      <div class="dev">
+        <span class="zn">院内</span>
+        <h3>音声入力（試行中）</h3>
+        <div class="cnt">議事録・記録の効率化</div>
+        <ul>
+          <li>院内端末での利用に限定</li>
+          <li>患者氏名は「イニシャル」等に置換</li>
+          <li>録音データは保存しない設定</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- FIGURE 4: Anonymization steps -->
+  <div class="sec">
+    <div class="sec-head"><span class="no">FIGURE 4</span><h2>匿名化の具体手順（外部へ渡すとき）<small>採血通知／AI連携 の内部処理</small></h2></div>
+
+    <p style="font-size:12px;margin-bottom:10px;color:var(--muted);">
+      <strong style="color:var(--ink)">A. 採血通知（BYODへ）</strong> ─ 患者名・値を消して「病室＋事象」だけに変換して通知配信。
+    </p>
+    <div class="steps">
+      <div class="step">
+        <div class="n"><div class="dot">1</div></div>
+        <h4>看護師が登録</h4>
+        <p>院内PCで「303号室 採血 到着」を1件登録（患者IDは内部保持）。</p>
+      </div>
+      <div class="step">
+        <div class="n"><div class="dot">2</div></div>
+        <h4>ゲートで変換</h4>
+        <p>患者ID・氏名・検査値を除去し、<strong>病室番号＋事象</strong>のみに整形。</p>
+      </div>
+      <div class="step">
+        <div class="n"><div class="dot">3</div></div>
+        <h4>担当医に通知</h4>
+        <p>担当医のBYODに「303号室 採血 到着」だけ配信（患者名・値なし）。</p>
+      </div>
+      <div class="step">
+        <div class="n"><div class="dot">4</div></div>
+        <h4>院内PCで詳細</h4>
+        <p>医師は院内Wi-Fi＋認証で院内PCから詳細を確認（BYODでは詳細を開かない）。</p>
+      </div>
+      <div class="step">
+        <div class="n"><div class="dot">5</div></div>
+        <h4>ログに記録</h4>
+        <p>だれが・いつ・どのレコードを閲覧したかを自動記録。</p>
+      </div>
+    </div>
+
+    <p style="font-size:12px;margin:16px 0 10px;color:var(--muted);">
+      <strong style="color:var(--ink)">B. 生成AI連携（将来）</strong> ─ 患者IDを仮名に置換し、固有名詞をマスクしてから送信。
+    </p>
+    <div class="steps">
+      <div class="step">
+        <div class="n"><div class="dot">1</div></div>
+        <h4>対象データ抽出</h4>
+        <p>kintoneから要約・下書きに必要な項目だけ抽出（診療情報は含めない）。</p>
+      </div>
+      <div class="step">
+        <div class="n"><div class="dot">2</div></div>
+        <h4>ID仮名化</h4>
+        <p>患者ID→仮名（例：Case001）に置換。院内で対応表を保管し外部に持たない。</p>
+      </div>
+      <div class="step">
+        <div class="n"><div class="dot">3</div></div>
+        <h4>固有名詞マスク</h4>
+        <p>氏名・住所・電話番号・日付など自動検出し伏せる／削除。</p>
+      </div>
+      <div class="step">
+        <div class="n"><div class="dot">4</div></div>
+        <h4>AI に問合せ</h4>
+        <p>法人契約のGemini等へ送信（学習利用オフ・保存最小の設定）。</p>
+      </div>
+      <div class="step">
+        <div class="n"><div class="dot">5</div></div>
+        <h4>院内で結果整形</h4>
+        <p>戻ってきた要約に仮名を戻す（必要な場合のみ）。ログに保存。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rules -->
+  <div class="sec">
+    <div class="sec-head"><span class="no">RULES</span><h2>運用ルール（みんなで守るお願い）</h2></div>
+    <div class="rules">
+      <div class="r"><strong>ID/パスワード</strong>：他人に教えない・共有しない。<strong>2要素認証</strong>を必ず設定。忘れたら管理者にリセット依頼。</div>
+      <div class="r"><strong>離席時ロック</strong>：短時間でも画面をロック（Win＋L）。自動ロックも5分で設定。</div>
+      <div class="r"><strong>入力場所を守る</strong>：患者情報の入力は<strong>院内デバイス</strong>のみ。私物スマホでkintoneに直接ログインしない。</div>
+      <div class="r"><strong>タブレット運用</strong>：患者入力後はログアウト＆消毒。持ち出し・貸出は不可。</div>
+      <div class="r warn"><strong>BYOD通知</strong>：私物スマホには<strong>患者名・検査値を絶対に載せない</strong>。詳細は院内PCで確認する。</div>
+      <div class="r warn"><strong>AI利用</strong>：kintoneからAIに送るのは<strong>仮名化・匿名化されたデータのみ</strong>。個人が特定できる情報は渡さない。</div>
+      <div class="r"><strong>写真・スクショ禁止</strong>：kintone画面や患者情報の私物スマホ撮影・SNS投稿は禁止。</div>
+      <div class="r"><strong>変更履歴を信頼</strong>：間違えて消しても履歴で復元可。慌てず管理者に相談。</div>
+    </div>
+  </div>
+
+  <!-- Incident -->
+  <div class="sec">
+    <div class="sec-head"><span class="no">INCIDENT</span><h2>もしもの時 ― 誰が・何をする</h2></div>
+    <div class="inc">
+      <div class="card">
+        <h3>デバイス紛失（PC／タブレット）</h3>
+        <ol>
+          <li>発見者 → 直ちに<strong>看護師長・管理者</strong>へ連絡</li>
+          <li>管理者：kintoneアカウントを一時停止・パスワード強制変更</li>
+          <li>タブレットは<strong>MDMで遠隔ロック／ワイプ</strong></li>
+          <li>院長・事務長へ報告、経緯を記録</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>スタッフ退職・異動</h3>
+        <ol>
+          <li>事務長 → 管理者に通知（退職日／異動日）</li>
+          <li>管理者：<strong>当日中にアカウント無効化</strong></li>
+          <li>BYOD通知配信先から削除</li>
+          <li>ログを1件保存（無効化の記録）</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>不審な通知・見覚えのないログイン</h3>
+        <ol>
+          <li>本人 → <strong>触らずに</strong>管理者へ報告</li>
+          <li>管理者：ログを確認、必要なら該当アカウントを一時停止</li>
+          <li>他アカウントへの波及がないか監査ログを確認</li>
+          <li>再発防止策を検討・共有</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    弘前メモリアル病院 kintone セキュリティ図解（内部資料）／ 内容は導入準備段階の案。テクノルとの協議・院長承認を経て確定します。
+  </footer>
+
+</div>
+</body>
+</html>
