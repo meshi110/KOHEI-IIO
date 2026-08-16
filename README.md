@@ -6,6 +6,7 @@
 |---|---|---|
 | 勤務管理 | [`index.html`](index.html) | 出退勤の打刻・記録の編集 |
 | Ortho English Coach | [`english/index.html`](english/index.html) | 整形外科の国際学会英語＋日常スラング英会話の練習 |
+| Drive English | [`voice/index.html`](voice/index.html) | 車内15分の音声英会話（Gemini API + Supabase 蓄積型学習） |
 
 ---
 
@@ -53,3 +54,44 @@
   （読み上げとフレーズ閲覧はどのブラウザでも動きます）。
 - 初回の「🎙 話す」でマイクの許可を求められます。
 - ホーム画面に追加するとアプリのように全画面で使えます。
+
+---
+
+## Drive English（車内英会話・ストック型学習）
+
+通勤15分の音声英会話。会話のたびに「文法ミス」「新出単語」を Supabase に自動保存し、
+**次回乗車時の冒頭クイズ**として出題するループを回します（正解3回で習得済みに）。
+
+### 構成
+
+```
+iPhone (PWA: voice/index.html)
+  ├─ 音声認識 / 読み上げ … Web Speech API（端末内）
+  └─ fetch ─→ Supabase Edge Function「api」 … PIN認証
+                ├─ Gemini API（キーはサーバー側シークレット。ブラウザに出ない）
+                │    ├─ chat: 会話（冒頭のみGoogle検索グラウンディングで最新ニュース）
+                │    └─ finish: Structured Outputs で学習データを抽出
+                └─ PostgreSQL（sessions / vocabularies / feedback_logs、RLSで外部遮断）
+```
+
+### 初回セットアップ（2つのシークレット登録が必要）
+
+1. [Google AI Studio](https://aistudio.google.com/) で **Gemini APIキー**を無料発行
+2. [Supabase Dashboard](https://supabase.com/dashboard/project/imhsajhnappghezkrmre/settings/functions) →
+   Edge Functions → Secrets に登録:
+   - `GEMINI_API_KEY` = 手順1のキー
+   - `APP_PIN` = 任意の暗証番号（例: 4桁数字）
+3. iPhoneのSafariで `voice/index.html` を開き、⚙️設定に同じPINを入力
+4. ホーム画面に追加（PWA化）
+
+### 使い方（乗車 → 下車）
+
+1. 乗車時・停車中に「▶ セッション開始」を1タップ（復習クイズ→1分ニュース→英語で議論）
+2. あとはハンズフリー。AIの発話が終わると自動でマイクがONに戻ります
+3. 駐車後に「■ 終了して保存」→ ミス・新出単語・要約が自動抽出され保存されます
+
+### 注意
+
+- CarPlayの画面ではPWAは動きません。**iPhone本体をマウント**し、音声はBluetoothで車へ。
+- 音声認識はiOSの仕様で無音時に自動停止します（アプリ側で自動再開）。画面は点灯維持（Wake Lock）。
+- 運転中の画面操作は行わないでください。
