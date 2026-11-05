@@ -10,6 +10,7 @@
    - 自分のメールアドレスと強いパスワード → **Auto Confirm User にチェック** → 作成
 2. 第三者の登録を防ぐ: [Authentication → Sign In / Providers](https://supabase.com/dashboard/project/imhsajhnappghezkrmre/auth/providers) → Email → **「Allow new users to sign up」をOFF**
 3. [Settings → API Keys](https://supabase.com/dashboard/project/imhsajhnappghezkrmre/settings/api-keys) で **service_role キー**をコピーしておく（手順3で使う）
+4. 当直日の初期登録: [SQL Editor](https://supabase.com/dashboard/project/imhsajhnappghezkrmre/sql/new) で `commute/supabase/seed_rest_days_202610-11.sql` の中身を貼り付けて Run（2026年10-11月の当番表から抽出済み。これでアプリを始めた日からストリークが当直で途切れない）。Claude Code に「当直日を登録して」と頼んでもよい
 
 ## 2. Gemini API キーを発行（3分）
 
