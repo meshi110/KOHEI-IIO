@@ -39,7 +39,7 @@
 
 ## 4. Cron（朝のブリーフィング）の確認（2分）
 
-- Vercel の Project → **Settings → Cron Jobs** に `/api/cron/briefing`（`30 20 * * 0-4` = JST平日5:30）が表示されていればOK
+- Vercel の Project → **Settings → Cron Jobs** に `/api/cron/briefing`（`30 20 * * *` = JST毎日5:30。土日当番の通勤にも対応）が表示されていればOK
 - 手動テスト（Macのターミナル）:
   ```bash
   curl -H "Authorization: Bearer <CRON_SECRET>" https://<あなたのURL>.vercel.app/api/cron/briefing
@@ -62,6 +62,6 @@ Vercel の `GEMINI_LIVE_MODEL` / `GEMINI_TEXT_MODEL` に設定して Redeploy。
 
 ## 運用メモ
 
-- **Supabaseの自動休止**: 無料枠は約1週間アクセスが無いと休止する。平日毎朝のcronが叩くので通常は休止しないが、長期休暇後はダッシュボードで Restore が必要なことがある。
+- **Supabaseの自動休止**: 無料枠は約1週間アクセスが無いと休止する。毎朝のcronが叩くので通常は休止しないが、長期休暇後はダッシュボードで Restore が必要なことがある。
 - 旧テーブル `legacy_sessions` / `legacy_vocabularies` / `legacy_feedback_logs`（全て空）と旧Edge Function `api` は不要になったらダッシュボードから削除してよい。
 - キー類をフロントに書かないこと（リポジトリの CLAUDE.md 参照）。

@@ -6,6 +6,7 @@ import { ENV } from "../_lib/env";
 import { jstToday } from "../../shared/leitner";
 import { weekdayStreak } from "../../shared/streak";
 import { teacherDisplay, teacherKey, teachersForDate } from "../../shared/teachers";
+import { focusForDate } from "../../shared/curriculum";
 
 /**
  * POST /api/session/start
@@ -36,7 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const today = jstToday();
 
-    const [lastSession, weaknesses, dueCards, briefingRow, pastSessions] = await Promise.all([
+    const [lastSession, weaknesses, dueCards, briefingRow, pastSessions, restRows] = await Promise.all([
       db
         .from("sessions")
         .select("summary")
@@ -72,6 +73,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .eq("user_id", user.id)
         .order("started_at", { ascending: false })
         .limit(200),
+      db
+        .from("rest_days")
+        .select("date")
+        .eq("user_id", user.id)
+        .order("date", { ascending: false })
+        .limit(200),
     ]);
 
     if (weaknesses.error) throw weaknesses.error;
@@ -83,7 +90,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     );
     const totalSessions = (pastSessions.data ?? []).length + 1;
     sessionDays.add(today);
-    const streak = weekdayStreak(sessionDays, today);
+    const restDays = (restRows.data ?? []).map((r) => r.date);
+    const streak = weekdayStreak(sessionDays, today, restDays);
 
     const briefing = briefingRow.data ?? null;
 
@@ -95,6 +103,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const systemInstruction = buildSystemInstruction({
       teacherBlock: buildTeacherBlock(assignment),
+      focusBlock: focusForDate(today).promptBlock,
       profileText: [
         profile.level_note && `Level: ${profile.level_note}`,
         profile.goals && `Goal: ${profile.goals}`,

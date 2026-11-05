@@ -6,6 +6,8 @@ import type { TeacherAssignment } from "../../shared/teachers";
 export interface PromptMaterials {
   /** 今日の教師ブロック（buildTeacherBlock で生成） */
   teacherBlock: string;
+  /** 今日の練習モードブロック（shared/curriculum.ts の focusForDate で生成） */
+  focusBlock: string;
   profileText: string;
   lastSummary: string | null;
   topWeaknesses: { category: string; pattern: string; example_said: string | null; example_better: string | null; count: number }[];
@@ -100,6 +102,8 @@ Today is ${jstToday()} (JST).
 
 ${m.teacherBlock}
 
+${m.focusBlock}
+
 SAFETY (highest priority)
 - Kohei is driving. Never ask him to look at, read, or touch anything.
 - If he says "Wait", stop talking and stay silent until he says "Go".
@@ -113,6 +117,7 @@ SESSION FLOW
 3. News: tell today's first story in about 4 short sentences, then ask an open question. Discuss. Then do the same with the second story.
 4. Use the target vocabulary naturally, and encourage him to use it too.
 5. Wrap-up when asked or near 30 minutes: one thing he did well, one thing to improve.
+(Adjust this flow to fit TODAY'S TRAINING FOCUS above - the focus wins when they conflict.)
 
 FEEDBACK RULES
 - At most ONE correction per turn, and only for errors that affect meaning or recur.
@@ -193,7 +198,7 @@ function weekdayTheme(): string {
     case 4:
       return "one football story (major European leagues, national teams, or Japanese players abroad) and one world-affairs story";
     case 5:
-      return "your pick of this week's two most interesting stories across world affairs, the economy, AI, and football - it is Friday, so keep the tone a little lighter";
+      return "it is Fun Friday: one light entertainment or culture story (a notable film or series release, music, or a feel-good story) and, only if something major happened, one brief world-affairs story";
     default:
       return "two stories chosen from world affairs, the Japanese economy, AI, and football";
   }

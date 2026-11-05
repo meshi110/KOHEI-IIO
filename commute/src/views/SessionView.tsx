@@ -4,9 +4,10 @@ import { supabase } from "../lib/supabase";
 import { LiveConversation, type LiveState } from "../lib/liveClient";
 import { MicCapture } from "../lib/audio/mic";
 import { PcmPlayer } from "../lib/audio/playback";
-import { jstToday } from "../../shared/leitner";
+import { jstDatePlusDays, jstToday } from "../../shared/leitner";
 import { weekdayStreak } from "../../shared/streak";
 import { teacherDisplay, teachersForDate } from "../../shared/teachers";
+import { focusForDate } from "../../shared/curriculum";
 
 type Phase = "idle" | "starting" | "live" | "ending" | "done" | "error";
 
@@ -33,7 +34,10 @@ function StatsBar({ refreshKey }: { refreshKey: number }) {
         (a: number, m: { user_words: number | null }) => a + (m.user_words ?? 0),
         0,
       );
-      setStats({ streak: weekdayStreak(days, jstToday()), total: rows.length, words });
+      // 当直などの登録済み休養日はストリークを途切れさせない
+      const rest = await supabase.from("rest_days").select("date").limit(200);
+      const restDays = (rest.data ?? []).map((r: { date: string }) => r.date);
+      setStats({ streak: weekdayStreak(days, jstToday(), restDays), total: rows.length, words });
     })();
   }, [refreshKey]);
   if (!stats) return null;
@@ -71,6 +75,8 @@ export default function SessionView({
   const [err, setErr] = useState<string | null>(null);
   const [briefingTitle, setBriefingTitle] = useState<string | null>(null);
   const [teacher, setTeacher] = useState<string | null>(null);
+  const [restMsg, setRestMsg] = useState<string | null>(null);
+  const [statsKey, setStatsKey] = useState(0);
 
   const conv = useRef<LiveConversation | null>(null);
   const mic = useRef<MicCapture | null>(null);
@@ -245,15 +251,31 @@ export default function SessionView({
     }
   }
 
+  /** 当直日の登録（0=今日, 1=昨日）。登録した日はストリークを途切れさせない */
+  async function registerRestDay(daysAgo: number) {
+    const date = jstDatePlusDays(-daysAgo);
+    const label = daysAgo === 0 ? "今日" : "昨日";
+    const { error } = await supabase
+      .from("rest_days")
+      .upsert({ date, reason: "当直" }, { onConflict: "user_id,date", ignoreDuplicates: true });
+    if (error) {
+      setRestMsg(`登録に失敗しました: ${error.message}`);
+    } else {
+      setRestMsg(`${label}（${date}）を当直として登録しました。ストリークは維持されます。`);
+      setStatsKey((k) => k + 1);
+    }
+  }
+
   const mm = String(Math.floor(elapsed / 60)).padStart(2, "0");
   const ss = String(elapsed % 60).padStart(2, "0");
 
   if (phase === "idle" || phase === "error") {
     const todays = teachersForDate(jstToday());
+    const focus = focusForDate(jstToday());
     return (
       <div className="session idle">
         <h1 className="apptitle">🚗 通勤英会話</h1>
-        <StatsBar refreshKey={0} />
+        <StatsBar refreshKey={statsKey} />
         <p className="teacherline">
           今日の担当: <b>{teacherDisplay(todays)}</b>
           <br />
@@ -261,6 +283,8 @@ export default function SessionView({
             {todays.teachers.map((t) => t.label).join(" / ")}
             {todays.kind === "panel" && " ・ 金曜パネル（2人の掛け合い）"}
           </span>
+          <br />
+          今日のメニュー: <b>{focus.emoji} {focus.labelJa}</b>
         </p>
         {briefingTitle && <p className="brieftitle">今日のニュース: {briefingTitle}</p>}
         {!briefingTitle && <p className="brieftitle dim">今日のブリーフィングは未生成です</p>}
@@ -273,6 +297,18 @@ export default function SessionView({
           音声コマンド: <b>Wait</b>（沈黙）/ <b>Go</b>（再開）/ <b>Repeat</b> / <b>Slower</b> /{" "}
           <b>Finish</b>（まとめて終了）
         </p>
+        <div className="restbox">
+          <span>当直でお休みした日は登録すればストリークが途切れません</span>
+          <div className="btns">
+            <button className="btn ghost" onClick={() => void registerRestDay(1)}>
+              昨日は当直だった
+            </button>
+            <button className="btn ghost" onClick={() => void registerRestDay(0)}>
+              今日は当直
+            </button>
+          </div>
+          {restMsg && <p className="restmsg">{restMsg}</p>}
+        </div>
       </div>
     );
   }

@@ -70,3 +70,10 @@ body {
 .teacherline { font-size: 14px; color: var(--sub); line-height: 1.7; }
 .teacherline b { color: var(--txt); }
 .teacherline.small { font-size: 13px; color: var(--dim); }
+
+/* 当直登録（休養日） */
+.restbox { font-size: 12px; color: var(--dim); line-height: 1.8; }
+.restbox .btns { display: flex; gap: 8px; justify-content: center; margin-top: 6px; }
+.btn.ghost { background: transparent; border: 1px solid var(--line); color: var(--sub);
+  font-size: 13px; font-weight: 600; padding: 8px 14px; border-radius: 10px; }
+.restmsg { margin-top: 6px; color: var(--ok); font-size: 12px; }

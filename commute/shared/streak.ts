@@ -29,15 +29,22 @@ export function prevWeekday(ymd: string): string {
  * - today が平日で実施済みなら today を含めて数える
  * - today が未実施（または週末）なら、直近の平日から遡って数える
  *   （「今日まだやっていない」だけでは途切れた扱いにしない）
+ * - restDays（当直などの登録済み休養日）は週末と同じ扱い：
+ *   カウントしないが、ストリークを途切れさせない
  */
-export function weekdayStreak(sessionDays: Iterable<string>, today: string): number {
+export function weekdayStreak(
+  sessionDays: Iterable<string>,
+  today: string,
+  restDays: Iterable<string> = [],
+): number {
   const days = new Set(sessionDays);
+  const rest = new Set(restDays);
   let d = today;
   if (!isWeekday(d)) d = prevWeekday(d);
   if (!days.has(d)) d = prevWeekday(d);
   let count = 0;
-  while (days.has(d)) {
-    count += 1;
+  while (days.has(d) || rest.has(d)) {
+    if (days.has(d)) count += 1;
     d = prevWeekday(d);
   }
   return count;
