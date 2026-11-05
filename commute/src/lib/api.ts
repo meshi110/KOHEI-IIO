@@ -23,6 +23,13 @@ export interface StartResponse {
   system_instruction: string;
   briefing_title: string | null;
   due_cards: { id: string; front_ja: string; back_en: string; box: number }[];
+  teacher: {
+    key: string;
+    display: string;
+    labels: string[];
+    kind: "solo" | "panel";
+    voice: string | null;
+  };
 }
 
 export const api = {

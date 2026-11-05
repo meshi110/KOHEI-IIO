@@ -65,3 +65,8 @@ body {
 /* stats bar（実データのみ） */
 .statsbar { font-size: 14px; color: var(--sub); }
 .statsbar b { color: var(--warn); font-size: 16px; }
+
+/* teacher */
+.teacherline { font-size: 14px; color: var(--sub); line-height: 1.7; }
+.teacherline b { color: var(--txt); }
+.teacherline.small { font-size: 13px; color: var(--dim); }

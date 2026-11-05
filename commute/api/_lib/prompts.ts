@@ -1,8 +1,11 @@
 // プロンプト組み立て（仕様書7のテンプレートをベースにする）
 
 import { jstToday } from "../../shared/leitner";
+import type { TeacherAssignment } from "../../shared/teachers";
 
 export interface PromptMaterials {
+  /** 今日の教師ブロック（buildTeacherBlock で生成） */
+  teacherBlock: string;
   profileText: string;
   lastSummary: string | null;
   topWeaknesses: { category: string; pattern: string; example_said: string | null; example_better: string | null; count: number }[];
@@ -28,6 +31,32 @@ export const PROFILE_DEFAULTS = {
       "Japanese macroeconomics, fiscal and monetary policy (he regularly listens to Yoichi Takahashi's economics commentary on YouTube); football",
   } as Record<string, unknown>,
 };
+
+/** 今日の教師（1人またはパネル2人）のロールプレイ指示を作る */
+export function buildTeacherBlock(a: TeacherAssignment): string {
+  const personas = a.teachers
+    .map((t) => `--- ${t.name} ---\n${t.persona}`)
+    .join("\n\n");
+  const shared = `ACCENT SAFETY VALVE: keep each teacher's natural accent. But if Kohei clearly fails to catch something twice in a row, repeat it once slowly in a neutral, clear accent, then return to the natural accent. Hearing real accents is part of his training for international conferences.`;
+  if (a.kind === "solo") {
+    return `TODAY'S TEACHER
+${personas}
+
+ROLEPLAY RULES
+- You ARE this teacher for the whole session. Stay in character: accent, personality, interests.
+- Introduce yourself by name in your greeting (one short line, varied day to day).
+- ${shared}`;
+  }
+  return `TODAY'S TEACHERS (Friday panel - like a conference panel discussion)
+${personas}
+
+ROLEPLAY RULES
+- Two teachers co-host through one audio stream. Whenever the speaker changes, the new speaker says their own name first ("Mike here - ..." / "Emma again - ...").
+- Keep the two voices clearly distinct in accent, rhythm and personality.
+- Let them briefly disagree or tease each other occasionally, then pull Kohei in to settle it ("Kohei, you're the referee - who's right?"). This simulates following a multi-speaker conference panel.
+- Do not let the teachers talk to each other for more than two exchanges before handing back to Kohei.
+- ${shared}`;
+}
 
 export function buildSystemInstruction(m: PromptMaterials): string {
   const weaknesses =
@@ -63,11 +92,13 @@ export function buildSystemInstruction(m: PromptMaterials): string {
       m.briefing.questions.map((q) => `- ${q}`).join("\n")
     : "(No briefing was generated today. Mention this briefly in one sentence, then do the review quiz and free conversation instead of news.)";
 
-  // 仕様書7のテンプレート本文
-  return `You are Kohei's English conversation coach during his morning drive (about 30 minutes).
+  // 仕様書7のテンプレート本文（＋教師ロールプレイ）
+  return `You are hosting Kohei's English conversation session during his morning drive (about 30 minutes), playing the teacher character(s) defined below.
 Kohei is an orthopaedic surgeon. His goal: understand and respond smoothly to talks and Q&A at international orthopaedic and sports medicine conferences.
 
 Today is ${jstToday()} (JST).
+
+${m.teacherBlock}
 
 SAFETY (highest priority)
 - Kohei is driving. Never ask him to look at, read, or touch anything.
@@ -126,7 +157,7 @@ export function buildAnalysisPrompt(
     dueCards.length === 0
       ? "(none)"
       : dueCards.map((c) => `- id=${c.id} | JA: ${c.front_ja} | EN: ${c.back_en}`).join("\n");
-  return `Below is the transcript of a spoken English practice session between KOHEI (Japanese orthopaedic surgeon, non-native speaker) and his AI COACH, during a morning drive. The transcript comes from automatic speech recognition and may contain recognition errors.
+  return `Below is the transcript of a spoken English practice session between KOHEI (Japanese orthopaedic surgeon, non-native speaker) and his AI tutor (labelled COACH; it role-plays one or more named teacher characters, so lines may start with a teacher's name). The transcript comes from automatic speech recognition and may contain recognition errors.
 
 Analyze KOHEI's English and return JSON.
 

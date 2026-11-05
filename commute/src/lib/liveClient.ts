@@ -34,6 +34,7 @@ export class LiveConversation {
   private inputBuf = "";
   private outputBuf = "";
   private finishPending = false;
+  private triedVoiceFallback = false;
 
   constructor(
     private tokenName: string,
@@ -41,6 +42,8 @@ export class LiveConversation {
     private systemInstruction: string,
     private player: PcmPlayer,
     private cb: LiveCallbacksApp,
+    /** 教師ごとのプリセットボイス名（無効だった場合は自動で標準音声に落とす） */
+    private voiceName: string | null = null,
   ) {}
 
   get currentState(): LiveState {
@@ -68,6 +71,9 @@ export class LiveConversation {
           outputAudioTranscription: {},
           contextWindowCompression: { slidingWindow: {} },
           sessionResumption: this.handle ? { handle: this.handle } : {},
+          ...(this.voiceName
+            ? { speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: this.voiceName } } } }
+            : {}),
         },
         callbacks: {
           onmessage: (m: LiveServerMessage) => this.onMessage(m),
@@ -80,6 +86,13 @@ export class LiveConversation {
       this.reconnects = 0;
       this.setState("live");
     } catch (e) {
+      // プリセットボイス名が原因で接続できない場合は、標準音声で一度だけ再試行
+      if (this.voiceName && !this.triedVoiceFallback) {
+        this.triedVoiceFallback = true;
+        this.voiceName = null;
+        await this.connect();
+        return;
+      }
       this.cb.onError(String(e instanceof Error ? e.message : e));
       await this.tryReconnect();
     }

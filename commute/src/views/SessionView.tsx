@@ -6,6 +6,7 @@ import { MicCapture } from "../lib/audio/mic";
 import { PcmPlayer } from "../lib/audio/playback";
 import { jstToday } from "../../shared/leitner";
 import { weekdayStreak } from "../../shared/streak";
+import { teacherDisplay, teachersForDate } from "../../shared/teachers";
 
 type Phase = "idle" | "starting" | "live" | "ending" | "done" | "error";
 
@@ -69,6 +70,7 @@ export default function SessionView({
   const [result, setResult] = useState<EndResult | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [briefingTitle, setBriefingTitle] = useState<string | null>(null);
+  const [teacher, setTeacher] = useState<string | null>(null);
 
   const conv = useRef<LiveConversation | null>(null);
   const mic = useRef<MicCapture | null>(null);
@@ -154,6 +156,7 @@ export default function SessionView({
       const s = await api.start();
       sessionId.current = s.session_id;
       if (s.briefing_title) setBriefingTitle(s.briefing_title);
+      setTeacher(s.teacher?.display ?? null);
 
       conv.current = new LiveConversation(
         s.token,
@@ -174,6 +177,7 @@ export default function SessionView({
           onAutoFinish: () => void end(),
           onError: (m) => setErr(m),
         },
+        s.teacher?.voice ?? null,
       );
       await conv.current.connect();
 
@@ -245,10 +249,19 @@ export default function SessionView({
   const ss = String(elapsed % 60).padStart(2, "0");
 
   if (phase === "idle" || phase === "error") {
+    const todays = teachersForDate(jstToday());
     return (
       <div className="session idle">
         <h1 className="apptitle">🚗 通勤英会話</h1>
         <StatsBar refreshKey={0} />
+        <p className="teacherline">
+          今日の担当: <b>{teacherDisplay(todays)}</b>
+          <br />
+          <span className="dim">
+            {todays.teachers.map((t) => t.label).join(" / ")}
+            {todays.kind === "panel" && " ・ 金曜パネル（2人の掛け合い）"}
+          </span>
+        </p>
         {briefingTitle && <p className="brieftitle">今日のニュース: {briefingTitle}</p>}
         {!briefingTitle && <p className="brieftitle dim">今日のブリーフィングは未生成です</p>}
         <button className="bigstart" onClick={() => void start()}>
@@ -286,6 +299,7 @@ export default function SessionView({
     return (
       <div className="session done">
         <h2>📝 セッション完了</h2>
+        {teacher && <p className="teacherline small">担当: {teacher}</p>}
         <StatsBar refreshKey={1} />
         {result?.summary && <p className="summary">{result.summary}</p>}
         {m && (
@@ -328,6 +342,7 @@ export default function SessionView({
   return (
     <div className="session live">
       <div className="elapsed">{mm}:{ss}</div>
+      {teacher && <div className="teacherline small">{teacher}</div>}
       <div className={"statusbig " + (liveState === "reconnecting" ? "warn" : speaking ? "speak" : "listen")}>
         {statusText}
       </div>

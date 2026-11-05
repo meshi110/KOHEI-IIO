@@ -1,10 +1,11 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { adminClient, methodGuard, requireUser } from "../_lib/supabase";
 import { createEphemeralToken } from "../_lib/gemini";
-import { buildSystemInstruction, PROFILE_DEFAULTS } from "../_lib/prompts";
+import { buildSystemInstruction, buildTeacherBlock, PROFILE_DEFAULTS } from "../_lib/prompts";
 import { ENV } from "../_lib/env";
 import { jstToday } from "../../shared/leitner";
 import { weekdayStreak } from "../../shared/streak";
+import { teacherDisplay, teacherKey, teachersForDate } from "../../shared/teachers";
 
 /**
  * POST /api/session/start
@@ -89,7 +90,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const prefs = (profile.preferences ?? {}) as Record<string, unknown>;
     const interests = typeof prefs.interests === "string" ? prefs.interests : null;
 
+    // 今日の教師（曜日ローテ。金曜は2人パネル）
+    const assignment = teachersForDate(today);
+
     const systemInstruction = buildSystemInstruction({
+      teacherBlock: buildTeacherBlock(assignment),
       profileText: [
         profile.level_note && `Level: ${profile.level_note}`,
         profile.goals && `Goal: ${profile.goals}`,
@@ -116,6 +121,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         briefing_id: briefing?.id ?? null,
         status: "active",
         started_at: new Date().toISOString(),
+        teacher: teacherKey(assignment),
       })
       .select("id")
       .single();
@@ -131,6 +137,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       system_instruction: systemInstruction,
       briefing_title: briefing?.stories?.[0]?.title ?? null,
       due_cards: dueCards.data ?? [],
+      teacher: {
+        key: teacherKey(assignment),
+        display: teacherDisplay(assignment),
+        labels: assignment.teachers.map((t) => t.label),
+        kind: assignment.kind,
+        // パネル日は進行役（1人目）の声を使う
+        voice: assignment.teachers[0].voice,
+      },
     });
   } catch (e) {
     res.status(500).json({ error: String(e instanceof Error ? e.message : e) });

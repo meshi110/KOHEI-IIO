@@ -1,12 +1,25 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { jstToday } from "../../shared/leitner";
+import { TEACHERS } from "../../shared/teachers";
 
 interface SessionRow {
   id: string;
   started_at: string;
   summary: string | null;
   status: string;
+  teacher: string | null;
+}
+
+function teacherNames(key: string | null): string {
+  if (!key) return "";
+  return key
+    .split("+")
+    .map((id) => {
+      const t = TEACHERS.find((x) => x.id === id);
+      return t ? `${t.emoji} ${t.name.split(" ").pop()}` : id;
+    })
+    .join(" & ");
 }
 interface MetricRow {
   session_id: string;
@@ -38,7 +51,7 @@ export default function HistoryView() {
     (async () => {
       const ses = await supabase
         .from("sessions")
-        .select("id, started_at, summary, status")
+        .select("id, started_at, summary, status, teacher")
         .order("started_at", { ascending: false })
         .limit(14);
       const rows = ses.data ?? [];
@@ -104,7 +117,8 @@ export default function HistoryView() {
         return (
           <div className="card" key={s.id}>
             <div className="meta">
-              {new Date(s.started_at).toLocaleString("ja-JP")} ・ {s.status}
+              {new Date(s.started_at).toLocaleString("ja-JP")}
+              {s.teacher ? " ・ " + teacherNames(s.teacher) : ""} ・ {s.status}
               {m &&
                 ` ・ ${m.user_words ?? "-"}語 / ${m.user_turns ?? "-"}ターン / ${
                   m.duration_sec != null ? Math.round(m.duration_sec / 60) + "分" : "-"
