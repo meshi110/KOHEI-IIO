@@ -1,0 +1,85 @@
+# TESTLOG.md — 動作確認の記録（仕様書10）
+
+記法: ✅ 合格 / ❌ 不合格 / ⬜ 未実施（実機が必要） / 🚫 この開発環境では実施不可能
+
+## 0. 実装時の仕様確認（2026-11-05, クラウド開発環境）
+
+- ✅ **SDKの形状確認**: `@google/genai v2.32.0` の型定義を直接検査し、以下を確認した。
+  - `ai.authTokens.create({config})`: `uses`(既定1)・`expireTime`(既定30分/最大20時間)・`newSessionExpireTime`(既定60秒)・`liveConnectConstraints{model, config}`。**「Resuming a Live API session does not count as a use.」**（uses:1 でも再接続可能）。v1alpha限定・@experimental。
+  - クライアント側は `new GoogleGenAI({apiKey: token.name, httpOptions:{apiVersion:'v1alpha'}})`。
+  - `LiveConnectConfig`: `systemInstruction` / `inputAudioTranscription` / `outputAudioTranscription` / `contextWindowCompression{slidingWindow}` / `sessionResumption{handle}` あり。
+  - `LiveServerMessage`: `serverContent{modelTurn, turnComplete, interrupted, generationComplete, inputTranscription{text,finished}, interimInputTranscription, outputTranscription}` / `goAway{timeLeft}` / `sessionResumptionUpdate{newHandle, resumable}`。
+  - `session.sendRealtimeInput({audio:{data,mimeType}} | {text})`。
+- 🚫 **ai.google.dev の直接閲覧**: この開発環境からはDNS遮断で不可。モデル名は WebSearch で確認：公式モデルページ最新は `gemini-3.8-live`（`gemini-3.1-flash-live-preview` はlegacy表示）、テキストは `gemini-3.8-flash`。ソース間に鮮度差があるため**両方とも環境変数で差し替え可能**にした。→ 初回デプロイ時に AI Studio で実在確認すること（SETUP.md 手順5）。
+- ✅ **エフェメラルトークンの設計判断**: `liveConnectConstraints` はモデルのみ固定し、config は固定しない（sessionResumption の handle が再接続ごとに変わるため、config固定は再接続と干渉する恐れ。仕様書3からの意図的な変更）。
+
+## 1. ユニットテスト（53件 全通過・このリポジトリで再現可能）
+
+```
+cd commute && npm test
+```
+
+- ✅ `leitner.test.ts`（7件）: box遷移（正解+1/上限5/不正解=1）、間隔1/2/4/7/14日、JST日付境界（UTC前日15:30→JST当日）、月またぎ加算
+- ✅ `metrics.test.ts`（4件）: 語数・ターン数の実データ計算、duration（欠損・負値は null — 仕様書4「計算できない値は null」）
+- ✅ `verify.test.ts`（6件）: said照合 — 完全一致採用／大文字小文字・句読点・アポストロフィのゆらぎ吸収／AI発話からの引用は不採用／捏造引用は不採用（仕様書9）
+- ✅ `liveTurns.test.ts`（6件）: turnComplete で user→ai 順に確定・seq連番／interrupted で再生キュー破棄＋AI途中発話の確定／音声データの再生キュー投入／短い "Finish" で自動終了・長文中の finish では誤発火しない／resumableハンドル保持
+- ✅ `streak.test.ts`（14件）: 平日ストリーク — 週末スキップ（金→月は連続）／今日未実施でも維持／抜けで停止／**当直（rest_days）はカウントせず途切れもしない**（橋渡し・2日連続・週末またぎ・未登録なら途切れる）
+- ✅ `teachers.test.ts`（5件）: 教師ローテ — 月〜木固定（Emma/Raj/Fiona/Mike）／金曜は異なる2人のパネル／ペアは週替わり／週末も有効
+- ✅ `curriculum.test.ts`（7件）: 週間カリキュラム — 月🎤/火👂/水⚡/木🗣/金🎬/土日🌤 のモード割当とプロンプトブロックの存在
+- ✅ `prompts.test.ts`（4件）: システム指示 — 練習モードブロックの挿入／聞き流しモード（ラジオ形式・Finish終了・発話を強要しない・ブリーフィング/復習/弱点の組み込み・ブリーフィング無し日のフォールバック）
+
+追記 (2026-11-05): 教師制導入に伴い、実機テスト時は以下も確認する。
+- ⬜ 教師の声・訛りが曜日で変わる（変わらない場合: プリセットボイス名が無効で標準音声フォールバックが働いた可能性 → コンソールログ確認）
+- ⬜ 訛りが聞き取れず2回聞き返すと、一度だけ明瞭な発音で言い直す
+- ⬜ 金曜: 2人が名乗ってから話す／教師同士の会話が2往復以内で自分に振られる
+
+追記 (2026-11-05): 週間カリキュラム＋当直スキップ導入（ユニットテストは 49件に増加: curriculum 7件・streak 14件）。実機テスト時は以下も確認する。
+- ⬜ ホーム画面に「今日のメニュー」（月🎤スピーキング/火👂リスニング/水⚡瞬発力/木🗣ディスカッション/金🎬息抜き/土日🌤ライトミックス）が表示され、会話の進め方が実際にそのモードに寄る
+- ⬜ 金曜: ニュースは軽め1本＋映画・カルチャー中心になる
+- ⬜ 「昨日は当直だった」を押す→登録メッセージが出て、ストリークが途切れていない（押す前に減っていた数字が回復する）
+- ⬜ 同じ日を二度登録してもエラーにならない（何も変わらないだけ）
+- ⬜ 土日にブリーフィングが生成されている（cron を毎日に変更済み）／土日のセッションがライトミックスで動く
+
+追記 (2026-11-05): 聞き流しモード導入（ユニットテスト 53件: prompts 4件追加）。実機テスト時は以下も確認する。
+- ⬜ 🎧ボタンで開始すると、質問攻めにならずラジオ風に話し続ける（黙っていても途切れない）
+- ⬜ 途中で話しかけると応じて、また番組に戻る
+- ⬜ 45分を超えても再接続が続く（トークン150分。金曜の病院間30分×2と帯同を想定）
+- ⬜ "Finish" で30秒のまとめ→終了し、履歴に🎧付きで記録される
+- ⬜ モバイルデータ使用量を一度実測する（目安200〜300MB/時 → SETUP.md 運用メモ）
+
+## 2. ビルド・スモーク（このリポジトリで再現可能）
+
+- ✅ `npm run build`（tsc strict + vite）通過
+- ✅ Chromiumスモーク: 起動→ログイン画面描画→誤認証でエラー表示、コンソールエラーなし
+- 🚫 Supabase への実通信: 開発サンドボックスの外向き遮断により「Failed to fetch」まで確認（＝エラーハンドリング経路は検証済み）。**実疎通は手順3の初回ログインで確認する**
+
+## 3. 机上テスト（Mac + イヤホン）⬜ ユーザー実施
+
+SETUP.md 完了後、Macのブラウザで本番URLを開いて：
+
+- ⬜ ログインできる（＝Supabase疎通OK）
+- ⬜ Start → AIが挨拶→復習（カードがあれば）→ニュースの順で話し始める
+- ⬜ こちらの発話に応答する／"Repeat"・"Slower"・"Wait"→"Go" が効く
+- ⬜ End → 「保存・解析中…」→ 完了画面に要約・指摘・新カード・ストリークが出る
+- ⬜ 履歴タブにセッション・弱点・カードが表示される
+- ⬜ 翌朝、冒頭で前日のカードがクイズに出る（＝1サイクル完成）
+
+## 4. iPhoneテスト（停車中）⬜ ユーザー実施
+
+- ⬜ ホーム画面に追加したPWAでマイク許可が出る・会話できる
+- ⬜ 会話中に画面が消灯しない（Wake Lock）。消灯する場合は iOS 設定の自動ロックを「なし」に
+- ⬜ 画面を手で消した場合の挙動（復帰後に再接続するか）を記録する
+
+## 5. 車内テスト（駐車中）⬜ ユーザー実施
+
+- ⬜ Bluetooth/CarPlay 接続中、マイクが iPhone側か車側か（コントロールセンターで確認）
+- ⬜ エコー（AIの声をマイクが拾って自分で割り込む現象）の有無 — 発生したら音量を下げる/iPhoneマイクに切替
+- ⬜ ロードノイズ想定での聞き取り精度、応答遅延の体感
+
+## 6. 通勤での初回使用 ⬜ ユーザー実施
+
+- ⬜ 約10分ごとの再接続が自動で行われる（チャイム音のみで会話が続く）
+- ⬜ 30分間、操作なしで完走する
+- ⬜ 下車後の解析結果が妥当（言っていないミスを指摘されていないか＝said照合の実地確認）
+
+結果はこのファイルに追記してください（✅/❌と日付、気づいたこと）。
