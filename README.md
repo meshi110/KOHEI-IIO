@@ -8,6 +8,7 @@
 | Ortho English Coach | [`english/index.html`](english/index.html) | 整形外科の国際学会英語＋日常スラング英会話の練習 |
 | Drive English | [`voice/index.html`](voice/index.html) | （旧版・凍結）Web Speech API 版の車内英会話 |
 | **通勤英会話 v0.1** | [`commute/`](commute/) | Gemini Live API によるリアルタイム音声英会話。弱点・復習カードを自動蓄積（[SETUP](commute/SETUP.md) / [TESTLOG](commute/TESTLOG.md)） |
+| ROMレコーダー | [`rom-recorder/`](rom-recorder/) | 関節角度の計測・記録（AIカメラ計測・動画解析・写真/X線の手動計測・CSV）。詳細は [rom-recorder/README.md](rom-recorder/README.md) |
 
 ---
 

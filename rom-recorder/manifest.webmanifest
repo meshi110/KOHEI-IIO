@@ -1,0 +1,15 @@
+{
+  "name": "ROMレコーダー 関節角度計測・記録",
+  "short_name": "ROMレコ",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "description": "関節可動域(ROM)の計測と記録を補助するツール。AIカメラ計測・動画解析・写真計測・経過グラフ。データは端末内にのみ保存。",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
