@@ -6,7 +6,8 @@
 |---|---|---|
 | 勤務管理 | [`index.html`](index.html) | 出退勤の打刻・記録の編集 |
 | Ortho English Coach | [`english/index.html`](english/index.html) | 整形外科の国際学会英語＋日常スラング英会話の練習 |
-| Drive English | [`voice/index.html`](voice/index.html) | 車内15分の音声英会話（Gemini API + Supabase 蓄積型学習） |
+| Drive English | [`voice/index.html`](voice/index.html) | （旧版・凍結）Web Speech API 版の車内英会話 |
+| **通勤英会話 v0.1** | [`commute/`](commute/) | Gemini Live API によるリアルタイム音声英会話。弱点・復習カードを自動蓄積（[SETUP](commute/SETUP.md) / [TESTLOG](commute/TESTLOG.md)） |
 
 ---
 

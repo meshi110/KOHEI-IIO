@@ -1,0 +1,341 @@
+import { useEffect, useRef, useState } from "react";
+import { api } from "../lib/api";
+import { supabase } from "../lib/supabase";
+import { LiveConversation, type LiveState } from "../lib/liveClient";
+import { MicCapture } from "../lib/audio/mic";
+import { PcmPlayer } from "../lib/audio/playback";
+import { jstToday } from "../../shared/leitner";
+import { weekdayStreak } from "../../shared/streak";
+
+type Phase = "idle" | "starting" | "live" | "ending" | "done" | "error";
+
+/** 続ける気になる数字（すべて実データから計算。推定値は出さない） */
+function StatsBar({ refreshKey }: { refreshKey: number }) {
+  const [stats, setStats] = useState<{ streak: number; total: number; words: number } | null>(
+    null,
+  );
+  useEffect(() => {
+    (async () => {
+      const ses = await supabase
+        .from("sessions")
+        .select("started_at")
+        .order("started_at", { ascending: false })
+        .limit(200);
+      const rows = ses.data ?? [];
+      if (rows.length === 0) {
+        setStats(null);
+        return;
+      }
+      const days = new Set(rows.map((r) => jstToday(new Date(r.started_at))));
+      const met = await supabase.from("session_metrics").select("user_words");
+      const words = (met.data ?? []).reduce(
+        (a: number, m: { user_words: number | null }) => a + (m.user_words ?? 0),
+        0,
+      );
+      setStats({ streak: weekdayStreak(days, jstToday()), total: rows.length, words });
+    })();
+  }, [refreshKey]);
+  if (!stats) return null;
+  return (
+    <p className="statsbar">
+      🔥 平日連続 <b>{stats.streak}</b> 日 ・ 通算 <b>{stats.total}</b> 回 ・ 英語で{" "}
+      <b>{stats.words.toLocaleString()}</b> 語
+    </p>
+  );
+}
+
+interface EndResult {
+  analyzed: boolean;
+  summary?: string | null;
+  metrics?: { user_words: number; ai_words: number; user_turns: number; duration_sec: number | null };
+  errors_saved?: number;
+  new_cards?: number;
+  cards_updated?: number;
+  reason?: string;
+}
+
+const WRAPUP_NOTE_AT_SEC = 25 * 60;
+
+export default function SessionView({
+  onActiveChange,
+}: {
+  onActiveChange: (active: boolean) => void;
+}) {
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [liveState, setLiveState] = useState<LiveState>("closed");
+  const [speaking, setSpeaking] = useState(false);
+  const [caption, setCaption] = useState("");
+  const [elapsed, setElapsed] = useState(0);
+  const [result, setResult] = useState<EndResult | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [briefingTitle, setBriefingTitle] = useState<string | null>(null);
+
+  const conv = useRef<LiveConversation | null>(null);
+  const mic = useRef<MicCapture | null>(null);
+  const player = useRef<PcmPlayer | null>(null);
+  const sessionId = useRef<string | null>(null);
+  const queue = useRef<{ seq: number; speaker: string; text: string }[]>([]);
+  const sending = useRef(false);
+  const wakeLock = useRef<WakeLockSentinel | null>(null);
+  const timerIv = useRef<number | null>(null);
+  const noteSent = useRef(false);
+  const endingRef = useRef(false);
+
+  // 今日のブリーフィングのタイトル（小さく表示：仕様書5）
+  useEffect(() => {
+    supabase
+      .from("briefings")
+      .select("stories")
+      .eq("date", jstToday())
+      .maybeSingle()
+      .then(({ data }) => {
+        const t = data?.stories?.[0]?.title;
+        if (t) setBriefingTitle(t);
+      });
+  }, []);
+
+  useEffect(() => {
+    onActiveChange(phase === "starting" || phase === "live" || phase === "ending");
+  }, [phase, onActiveChange]);
+
+  // 画面復帰時に Wake Lock を取り直す
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === "visible" && (phase === "live" || phase === "starting")) {
+        void acquireWakeLock();
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  });
+
+  async function acquireWakeLock() {
+    try {
+      wakeLock.current = (await navigator.wakeLock?.request("screen")) ?? null;
+    } catch {
+      /* 非対応でも続行（実機確認項目） */
+    }
+  }
+
+  function pushTurn(t: { seq: number; speaker: string; text: string }) {
+    queue.current.push(t);
+    void flushQueue();
+  }
+
+  async function flushQueue(retry = 0): Promise<void> {
+    if (sending.current || !sessionId.current || queue.current.length === 0) return;
+    sending.current = true;
+    const batch = queue.current.splice(0, queue.current.length);
+    try {
+      await api.turns(sessionId.current, batch);
+    } catch {
+      queue.current.unshift(...batch); // 失敗分は戻して後で再送（切断に備え都度送る：仕様書3）
+      if (retry < 100) {
+        window.setTimeout(() => {
+          sending.current = false;
+          void flushQueue(retry + 1);
+        }, 5000);
+        return;
+      }
+    }
+    sending.current = false;
+    if (queue.current.length > 0) void flushQueue(retry);
+  }
+
+  async function start() {
+    setErr(null);
+    setPhase("starting");
+    try {
+      // ユーザー操作直後に音声再生を解禁（iOS）
+      player.current = new PcmPlayer();
+      await player.current.unlock();
+      await acquireWakeLock();
+
+      const s = await api.start();
+      sessionId.current = s.session_id;
+      if (s.briefing_title) setBriefingTitle(s.briefing_title);
+
+      conv.current = new LiveConversation(
+        s.token,
+        s.model,
+        s.system_instruction,
+        player.current,
+        {
+          onState: (st) => {
+            setLiveState(st);
+            if (st === "live") setPhase("live");
+            if (st === "closed" && !endingRef.current) {
+              // 意図しない完全切断 → 記録を守るため終了処理へ
+              void end(true);
+            }
+          },
+          onCaption: (t) => setCaption(t),
+          onTurn: (t) => pushTurn(t),
+          onAutoFinish: () => void end(),
+          onError: (m) => setErr(m),
+        },
+      );
+      await conv.current.connect();
+
+      mic.current = new MicCapture();
+      await mic.current.start((b64) => conv.current?.sendAudioChunk(b64));
+
+      const startedAt = Date.now();
+      timerIv.current = window.setInterval(() => {
+        const sec = Math.floor((Date.now() - startedAt) / 1000);
+        setElapsed(sec);
+        setSpeaking(player.current?.speaking ?? false);
+        if (sec >= WRAPUP_NOTE_AT_SEC && !noteSent.current) {
+          noteSent.current = true;
+          conv.current?.sendAppNote(
+            "25 minutes have passed. Start moving toward the wrap-up soon.",
+          );
+        }
+      }, 500);
+    } catch (e) {
+      setErr(String(e instanceof Error ? e.message : e));
+      cleanup();
+      setPhase("error");
+    }
+  }
+
+  function cleanup() {
+    if (timerIv.current) {
+      clearInterval(timerIv.current);
+      timerIv.current = null;
+    }
+    mic.current?.stop();
+    mic.current = null;
+    conv.current?.close();
+    conv.current = null;
+    player.current?.close();
+    player.current = null;
+    wakeLock.current?.release().catch(() => {});
+    wakeLock.current = null;
+    noteSent.current = false;
+  }
+
+  async function end(fromDisconnect = false) {
+    if (endingRef.current) return;
+    endingRef.current = true;
+    setPhase("ending");
+    cleanup();
+    try {
+      // 未送信ターンを最後まで送る（最大3回試行）
+      for (let i = 0; i < 3 && queue.current.length > 0; i++) {
+        sending.current = false;
+        await flushQueue(999); // 999: 内部の自動リトライを使わず即戻す
+        if (queue.current.length > 0) await new Promise((r) => setTimeout(r, 2000));
+      }
+      if (!sessionId.current) throw new Error("no session");
+      const r = await api.end(sessionId.current);
+      setResult(r);
+      setPhase("done");
+      if (fromDisconnect) setErr("接続が切断されたため終了しました。記録は保存されています。");
+    } catch (e) {
+      setErr(String(e instanceof Error ? e.message : e));
+      setPhase("error");
+    } finally {
+      endingRef.current = false;
+      sessionId.current = null;
+    }
+  }
+
+  const mm = String(Math.floor(elapsed / 60)).padStart(2, "0");
+  const ss = String(elapsed % 60).padStart(2, "0");
+
+  if (phase === "idle" || phase === "error") {
+    return (
+      <div className="session idle">
+        <h1 className="apptitle">🚗 通勤英会話</h1>
+        <StatsBar refreshKey={0} />
+        {briefingTitle && <p className="brieftitle">今日のニュース: {briefingTitle}</p>}
+        {!briefingTitle && <p className="brieftitle dim">今日のブリーフィングは未生成です</p>}
+        <button className="bigstart" onClick={() => void start()}>
+          ▶ Start
+          <small>出発前に1回タップ。走行中は画面に触れない</small>
+        </button>
+        {err && <p className="err">{err}</p>}
+        <p className="note">
+          音声コマンド: <b>Wait</b>（沈黙）/ <b>Go</b>（再開）/ <b>Repeat</b> / <b>Slower</b> /{" "}
+          <b>Finish</b>（まとめて終了）
+        </p>
+      </div>
+    );
+  }
+
+  if (phase === "starting") {
+    return (
+      <div className="session center">
+        <div className="statusbig">接続中…</div>
+        <p className="dim">マイクの許可を求められたら許可してください</p>
+      </div>
+    );
+  }
+
+  if (phase === "ending") {
+    return (
+      <div className="session center">
+        <div className="statusbig">保存・解析中…</div>
+      </div>
+    );
+  }
+
+  if (phase === "done") {
+    const m = result?.metrics;
+    return (
+      <div className="session done">
+        <h2>📝 セッション完了</h2>
+        <StatsBar refreshKey={1} />
+        {result?.summary && <p className="summary">{result.summary}</p>}
+        {m && (
+          <p className="metrics">
+            あなた {m.user_words} 語 / {m.user_turns} ターン ・ AI {m.ai_words} 語 ・{" "}
+            {m.duration_sec != null ? `${Math.round(m.duration_sec / 60)} 分` : "-"}
+          </p>
+        )}
+        {result?.analyzed ? (
+          <p className="metrics">
+            指摘 {result.errors_saved ?? 0} 件 ・ 新カード {result.new_cards ?? 0} 枚 ・ 復習更新{" "}
+            {result.cards_updated ?? 0} 枚
+          </p>
+        ) : (
+          <p className="dim">発話がなかったため解析をスキップしました</p>
+        )}
+        {err && <p className="err">{err}</p>}
+        <button
+          className="btn primary"
+          onClick={() => {
+            setResult(null);
+            setErr(null);
+            setElapsed(0);
+            setPhase("idle");
+          }}
+        >
+          ホームへ
+        </button>
+      </div>
+    );
+  }
+
+  // phase === "live"
+  const statusText =
+    liveState === "reconnecting"
+      ? "再接続中…"
+      : speaking
+        ? "話しています"
+        : "聞いています";
+  return (
+    <div className="session live">
+      <div className="elapsed">{mm}:{ss}</div>
+      <div className={"statusbig " + (liveState === "reconnecting" ? "warn" : speaking ? "speak" : "listen")}>
+        {statusText}
+      </div>
+      <p className="caption">{caption}</p>
+      <button className="bigend" onClick={() => void end()}>
+        ■ End
+      </button>
+      {err && <p className="err small">{err}</p>}
+    </div>
+  );
+}

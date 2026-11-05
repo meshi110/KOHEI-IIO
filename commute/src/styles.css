@@ -1,0 +1,67 @@
+:root {
+  --bg: #0b1020; --bg2: #0f172a; --card: #182135; --line: #2b3a55;
+  --txt: #e8eefc; --sub: #93a4c4; --dim: #64748b;
+  --acc: #60a5fa; --ok: #22c55e; --warn: #f59e0b; --bad: #ef4444;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body, #root { height: 100%; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+  background: linear-gradient(180deg, var(--bg), var(--bg2) 50%, var(--bg));
+  color: var(--txt); -webkit-font-smoothing: antialiased;
+}
+.app { height: 100%; display: flex; flex-direction: column; }
+.main { flex: 1; overflow-y: auto; padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px 16px; }
+.center { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+.dim { color: var(--dim); }
+.err { color: #fca5a5; font-size: 14px; margin-top: 10px; line-height: 1.6; }
+.err.small { font-size: 12px; }
+.note { font-size: 12px; color: var(--dim); line-height: 1.8; margin-top: 18px; }
+
+/* tab bar */
+.tabbar { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom, 0px); background: var(--bg2); }
+.tabbar button { background: none; border: 0; color: var(--dim); font: inherit; font-size: 14px;
+  font-weight: 700; padding: 14px; cursor: pointer; }
+.tabbar button.on { color: var(--acc); }
+
+/* login */
+.login { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 10px; padding: 20px; }
+.login h1 { font-size: 22px; text-align: center; }
+.login p { text-align: center; font-size: 13px; }
+.login input { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+  color: var(--txt); font-size: 16px; padding: 13px; }
+.btn { border: 0; border-radius: 12px; padding: 14px; font: inherit; font-size: 16px; font-weight: 700; cursor: pointer; }
+.btn.primary { background: var(--acc); color: #0b1020; }
+
+/* session */
+.session { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; padding: 10px; }
+.apptitle { font-size: 22px; }
+.brieftitle { font-size: 13px; color: var(--sub); max-width: 480px; line-height: 1.6; }
+.bigstart { width: min(84vw, 340px); aspect-ratio: 1; border-radius: 50%; border: 4px solid var(--ok);
+  background: rgba(34, 197, 94, 0.12); color: var(--txt); font: inherit; font-size: 44px; font-weight: 800;
+  cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+.bigstart small { font-size: 12px; font-weight: 500; color: var(--sub); max-width: 70%; line-height: 1.6; }
+.bigstart:active { transform: scale(0.98); }
+.bigend { width: 100%; max-width: 420px; border: 0; border-radius: 18px; padding: 24px; font: inherit;
+  font-size: 22px; font-weight: 800; background: var(--bad); color: #fff; cursor: pointer; }
+.statusbig { font-size: 40px; font-weight: 800; }
+.statusbig.listen { color: var(--ok); }
+.statusbig.speak { color: var(--acc); }
+.statusbig.warn { color: var(--warn); }
+.elapsed { font-family: ui-monospace, Menlo, monospace; font-size: 20px; color: var(--dim); }
+.caption { min-height: 72px; font-size: 15px; color: var(--sub); max-width: 520px; line-height: 1.7; }
+.summary { font-size: 15px; line-height: 1.8; max-width: 520px; }
+.metrics { font-size: 13px; color: var(--sub); }
+
+/* history */
+.history h2 { font-size: 18px; margin-bottom: 12px; }
+.history h3 { font-size: 14px; color: var(--sub); margin: 18px 0 8px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 8px; }
+.card .en { font-size: 15px; font-weight: 600; margin: 3px 0; }
+.card .ja { font-size: 13px; color: var(--sub); line-height: 1.6; }
+.card .meta { font-size: 11px; color: var(--dim); }
+
+/* stats bar（実データのみ） */
+.statsbar { font-size: 14px; color: var(--sub); }
+.statsbar b { color: var(--warn); font-size: 16px; }
