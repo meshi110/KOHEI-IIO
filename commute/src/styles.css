@@ -43,6 +43,11 @@ body {
   cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
 .bigstart small { font-size: 12px; font-weight: 500; color: var(--sub); max-width: 70%; line-height: 1.6; }
 .bigstart:active { transform: scale(0.98); }
+.listenbtn { width: min(84vw, 340px); border: 1px solid var(--line); border-radius: 16px;
+  background: var(--card); color: var(--txt); font: inherit; font-size: 17px; font-weight: 700;
+  cursor: pointer; padding: 14px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.listenbtn small { font-size: 11px; font-weight: 500; color: var(--dim); line-height: 1.5; }
+.listenbtn:active { transform: scale(0.98); }
 .bigend { width: 100%; max-width: 420px; border: 0; border-radius: 18px; padding: 24px; font: inherit;
   font-size: 22px; font-weight: 800; background: var(--bad); color: #fff; cursor: pointer; }
 .statusbig { font-size: 40px; font-weight: 800; }

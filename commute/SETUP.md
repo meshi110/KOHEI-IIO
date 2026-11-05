@@ -63,5 +63,6 @@ Vercel の `GEMINI_LIVE_MODEL` / `GEMINI_TEXT_MODEL` に設定して Redeploy。
 ## 運用メモ
 
 - **Supabaseの自動休止**: 無料枠は約1週間アクセスが無いと休止する。毎朝のcronが叩くので通常は休止しないが、長期休暇後はダッシュボードで Restore が必要なことがある。
+- **聞き流しモードの通信量**: Live APIの音声は非圧縮PCMのため、およそ **200〜300MB/時** のモバイルデータを使う。30分×2の病院間移動なら問題になりにくいが、サッカー帯同（片道2時間）をフルで使うと往復1GB超になり得る。長時間は無料枠のAPI利用量も消費するので、2時間の遠征は前半だけアプリ・後半はポッドキャスト等の組み合わせも現実的。
 - 旧テーブル `legacy_sessions` / `legacy_vocabularies` / `legacy_feedback_logs`（全て空）と旧Edge Function `api` は不要になったらダッシュボードから削除してよい。
 - キー類をフロントに書かないこと（リポジトリの CLAUDE.md 参照）。

@@ -9,8 +9,13 @@ export function geminiClient(): GoogleGenAI {
   return new GoogleGenAI({ apiKey: ENV.GEMINI_API_KEY });
 }
 
-/** エフェメラルトークン発行（v1alpha限定・@experimental） */
-export async function createEphemeralToken(liveModel: string): Promise<string> {
+/**
+ * エフェメラルトークン発行（v1alpha限定・@experimental）
+ * @param expireMinutes トークン有効期限（分）。通常セッション45分、聞き流しは長距離移動
+ *   （サッカー帯同 片道2時間）に合わせて延長する。再接続はこのトークンで新規接続するため、
+ *   期限が切れると約10分ごとの再接続が失敗する。
+ */
+export async function createEphemeralToken(liveModel: string, expireMinutes = 45): Promise<string> {
   const ai = new GoogleGenAI({
     apiKey: ENV.GEMINI_API_KEY,
     httpOptions: { apiVersion: "v1alpha" },
@@ -19,7 +24,7 @@ export async function createEphemeralToken(liveModel: string): Promise<string> {
   const token = await ai.authTokens.create({
     config: {
       uses: 1, // 再接続(resume)は使用回数にカウントされない（SDKドキュメント）
-      expireTime: new Date(now + 45 * 60 * 1000).toISOString(), // 45分（仕様書3）
+      expireTime: new Date(now + expireMinutes * 60 * 1000).toISOString(),
       newSessionExpireTime: new Date(now + 5 * 60 * 1000).toISOString(), // 新規接続は5分以内に
       // モデルをトークン側で固定する。config の固定は sessionResumption の handle が
       // 再接続ごとに変わるため行わない（固定すると再接続時に不一致になる恐れがある）。

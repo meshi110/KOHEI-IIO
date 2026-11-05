@@ -1,7 +1,12 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { adminClient, methodGuard, requireUser } from "../_lib/supabase";
 import { createEphemeralToken } from "../_lib/gemini";
-import { buildSystemInstruction, buildTeacherBlock, PROFILE_DEFAULTS } from "../_lib/prompts";
+import {
+  buildListenSystemInstruction,
+  buildSystemInstruction,
+  buildTeacherBlock,
+  PROFILE_DEFAULTS,
+} from "../_lib/prompts";
 import { ENV } from "../_lib/env";
 import { jstToday } from "../../shared/leitner";
 import { weekdayStreak } from "../../shared/streak";
@@ -16,6 +21,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!methodGuard(req, res, ["POST"])) return;
   const user = await requireUser(req, res);
   if (!user) return;
+
+  // "morning" = 通常の会話レッスン / "listen" = 聞き流しモード（病院間移動・帯同などの長距離用）
+  const mode: "morning" | "listen" =
+    (req.body as { mode?: string } | undefined)?.mode === "listen" ? "listen" : "morning";
 
   const db = adminClient();
   try {
@@ -101,7 +110,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 今日の教師（曜日ローテ。金曜は2人パネル）
     const assignment = teachersForDate(today);
 
-    const systemInstruction = buildSystemInstruction({
+    const materials = {
       teacherBlock: buildTeacherBlock(assignment),
       focusBlock: focusForDate(today).promptBlock,
       profileText: [
@@ -119,14 +128,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ? { stories: briefing.stories, vocab: briefing.vocab, questions: briefing.questions }
         : null,
       stats: { totalSessions, weekdayStreak: streak },
-    });
+    };
+    const systemInstruction =
+      mode === "listen"
+        ? buildListenSystemInstruction(materials)
+        : buildSystemInstruction(materials);
 
     // セッション行を作成（active）
     const ses = await db
       .from("sessions")
       .insert({
         user_id: user.id,
-        type: "morning",
+        type: mode,
         briefing_id: briefing?.id ?? null,
         status: "active",
         started_at: new Date().toISOString(),
@@ -136,8 +149,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .single();
     if (ses.error) throw ses.error;
 
-    // エフェメラルトークン（uses:1 / 45分 / モデル固定）
-    const token = await createEphemeralToken(ENV.LIVE_MODEL);
+    // エフェメラルトークン（uses:1 / モデル固定）
+    // 聞き流しはサッカー帯同（片道2時間）まで持つよう150分。通常は45分（仕様書3）
+    const token = await createEphemeralToken(ENV.LIVE_MODEL, mode === "listen" ? 150 : 45);
 
     res.status(200).json({
       session_id: ses.data.id,

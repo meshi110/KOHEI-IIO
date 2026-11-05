@@ -33,7 +33,9 @@ export interface StartResponse {
 }
 
 export const api = {
-  start: () => call<StartResponse>("/api/session/start", {}),
+  /** mode: "morning"=通常レッスン / "listen"=聞き流し（長距離移動用） */
+  start: (mode: "morning" | "listen" = "morning") =>
+    call<StartResponse>("/api/session/start", { mode }),
   turns: (session_id: string, turns: { seq: number; speaker: string; text: string }[]) =>
     call<{ saved: number }>("/api/session/turns", { session_id, turns }),
   end: (session_id: string) =>

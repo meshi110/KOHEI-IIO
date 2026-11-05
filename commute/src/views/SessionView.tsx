@@ -77,6 +77,7 @@ export default function SessionView({
   const [teacher, setTeacher] = useState<string | null>(null);
   const [restMsg, setRestMsg] = useState<string | null>(null);
   const [statsKey, setStatsKey] = useState(0);
+  const [mode, setMode] = useState<"morning" | "listen">("morning");
 
   const conv = useRef<LiveConversation | null>(null);
   const mic = useRef<MicCapture | null>(null);
@@ -150,8 +151,9 @@ export default function SessionView({
     if (queue.current.length > 0) void flushQueue(retry);
   }
 
-  async function start() {
+  async function start(startMode: "morning" | "listen" = "morning") {
     setErr(null);
+    setMode(startMode);
     setPhase("starting");
     try {
       // ユーザー操作直後に音声再生を解禁（iOS）
@@ -159,7 +161,7 @@ export default function SessionView({
       await player.current.unlock();
       await acquireWakeLock();
 
-      const s = await api.start();
+      const s = await api.start(startMode);
       sessionId.current = s.session_id;
       if (s.briefing_title) setBriefingTitle(s.briefing_title);
       setTeacher(s.teacher?.display ?? null);
@@ -195,7 +197,8 @@ export default function SessionView({
         const sec = Math.floor((Date.now() - startedAt) / 1000);
         setElapsed(sec);
         setSpeaking(player.current?.speaking ?? false);
-        if (sec >= WRAPUP_NOTE_AT_SEC && !noteSent.current) {
+        // 聞き流しモードは終了時刻が決まっていない（Finishで終える）ため残り時間の注記はしない
+        if (startMode === "morning" && sec >= WRAPUP_NOTE_AT_SEC && !noteSent.current) {
           noteSent.current = true;
           conv.current?.sendAppNote(
             "25 minutes have passed. Start moving toward the wrap-up soon.",
@@ -288,9 +291,13 @@ export default function SessionView({
         </p>
         {briefingTitle && <p className="brieftitle">今日のニュース: {briefingTitle}</p>}
         {!briefingTitle && <p className="brieftitle dim">今日のブリーフィングは未生成です</p>}
-        <button className="bigstart" onClick={() => void start()}>
+        <button className="bigstart" onClick={() => void start("morning")}>
           ▶ Start
           <small>出発前に1回タップ。走行中は画面に触れない</small>
+        </button>
+        <button className="listenbtn" onClick={() => void start("listen")}>
+          🎧 聞き流しモード
+          <small>病院間の移動・帯同などの長距離用。話さなくてOK、Finishで終了</small>
         </button>
         {err && <p className="err">{err}</p>}
         <p className="note">
@@ -378,7 +385,12 @@ export default function SessionView({
   return (
     <div className="session live">
       <div className="elapsed">{mm}:{ss}</div>
-      {teacher && <div className="teacherline small">{teacher}</div>}
+      {teacher && (
+        <div className="teacherline small">
+          {mode === "listen" ? "🎧 聞き流し ・ " : ""}
+          {teacher}
+        </div>
+      )}
       <div className={"statusbig " + (liveState === "reconnecting" ? "warn" : speaking ? "speak" : "listen")}>
         {statusText}
       </div>

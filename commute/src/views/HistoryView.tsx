@@ -9,6 +9,7 @@ interface SessionRow {
   summary: string | null;
   status: string;
   teacher: string | null;
+  type: string | null;
 }
 
 function teacherNames(key: string | null): string {
@@ -51,7 +52,7 @@ export default function HistoryView() {
     (async () => {
       const ses = await supabase
         .from("sessions")
-        .select("id, started_at, summary, status, teacher")
+        .select("id, started_at, summary, status, teacher, type")
         .order("started_at", { ascending: false })
         .limit(14);
       const rows = ses.data ?? [];
@@ -117,6 +118,7 @@ export default function HistoryView() {
         return (
           <div className="card" key={s.id}>
             <div className="meta">
+              {s.type === "listen" ? "🎧 " : ""}
               {new Date(s.started_at).toLocaleString("ja-JP")}
               {s.teacher ? " ・ " + teacherNames(s.teacher) : ""} ・ {s.status}
               {m &&

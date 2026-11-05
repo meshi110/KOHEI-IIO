@@ -28,6 +28,24 @@ npm test        # vitest（shared ロジック + Live会話の状態機械）
 npm run build   # tsc + vite build（これが通らないコミットは禁止）
 ```
 
+## 当番表（日当直）と commute アプリの連携
+
+ユーザーの当番表は、日当直が決まるたびに Claude Code で作成して **Google カレンダー**に登録している。その作業を頼まれたとき（または当直日程を知らされたとき）は、**当直日を commute アプリの `rest_days` テーブルにも登録する**こと。これで平日ストリークが当直で途切れなくなる。
+
+- **当直**（泊まり）: 車に乗らない日ができる → **当直日とその翌日の両方**を登録する（翌朝は病院泊まり明けで通勤運転がないため）。すでにセッション実績がある日に登録しても害はない（実績が優先してカウントされる）。
+- **日直・当番**（回診あり）: 車に乗るので**登録しない**。週末はもともとストリーク対象外。
+
+Supabase プロジェクト `ortho-english`（id: `imhsajhnappghezkrmre`、ユーザーは1人だけ）で:
+
+```sql
+INSERT INTO rest_days (user_id, date, reason)
+SELECT u.id, d.date, d.reason
+FROM auth.users u,
+     (VALUES ('2026-11-12'::date, '当直'),
+             ('2026-11-13'::date, '当直明け')) AS d(date, reason)
+ON CONFLICT (user_id, date) DO NOTHING;
+```
+
 ## AI連携ルール（Claude Code × Gemini CLI）
 
 **ローカル環境（Mac）に Googleアカウント認証済みの `gemini` CLI がある場合のみ**（`command -v gemini` で確認。無い環境＝クラウドセッションではこの節をスキップし、代わりに WebSearch 等を使う）：
