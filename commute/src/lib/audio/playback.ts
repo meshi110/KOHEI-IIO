@@ -18,7 +18,7 @@ export class PcmPlayer {
     await this.ctx.resume();
   }
 
-  private decodeChunk(b64: string): Float32Array {
+  private decodeChunk(b64: string) {
     const bin = atob(b64);
     const prev = this.carry ? this.carry.length : 0;
     const bytes = new Uint8Array(prev + bin.length);
@@ -26,9 +26,13 @@ export class PcmPlayer {
     for (let i = 0; i < bin.length; i++) bytes[prev + i] = bin.charCodeAt(i);
     const usable = bytes.length - (bytes.length % 2);
     this.carry = usable < bytes.length ? bytes.slice(usable) : null;
-    const pcm = new Int16Array(bytes.buffer, 0, usable / 2);
-    const out = new Float32Array(pcm.length);
-    for (let i = 0; i < pcm.length; i++) out[i] = pcm[i] / 0x8000;
+    // 16bit リトルエンディアン PCM → Float32（-1〜1）
+    const out = new Float32Array(usable / 2);
+    for (let i = 0; i < out.length; i++) {
+      let v = bytes[2 * i] | (bytes[2 * i + 1] << 8);
+      if (v >= 0x8000) v -= 0x10000;
+      out[i] = v / 0x8000;
+    }
     return out;
   }
 
