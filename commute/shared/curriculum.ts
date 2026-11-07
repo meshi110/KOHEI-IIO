@@ -35,7 +35,7 @@ const QUICK: TrainingFocus = {
   labelJa: "瞬発力（クイックレスポンス）",
   promptBlock: `TODAY'S TRAINING FOCUS: QUICK RESPONSE (reflex day)
 - Short turns, high tempo. Run three 60-second sprints spread through the session:
-  (1) say-it-in-English: you give a situation in Japanese or simple English, he answers instantly;
+  (1) say-it-in-English: you give a short situation in simple English, he answers instantly;
   (2) paraphrase: he restates your sentence in different words;
   (3) one-liners: his opinion in exactly one sentence, no hesitation.
 - Don't let him over-think: if he stalls more than about 3 seconds, give the answer cheerfully and move on.`,
