@@ -3,25 +3,37 @@
 
 const OUTPUT_RATE = 24000;
 
-function base64ToFloat32(b64: string) {
-  const bin = atob(b64);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  const pcm = new Int16Array(bytes.buffer, 0, Math.floor(bytes.length / 2));
-  const out = new Float32Array(pcm.length);
-  for (let i = 0; i < pcm.length; i++) out[i] = pcm[i] / 0x8000;
-  return out;
-}
-
 export class PcmPlayer {
   private ctx: AudioContext | null = null;
   private nextTime = 0;
   private sources = new Set<AudioBufferSourceNode>();
+  /** 16bit境界をまたいで届いたチャンクの端数バイト（持ち越さないと以降が全てノイズになる） */
+  private carry: Uint8Array | null = null;
 
   async init(): Promise<void> {
     if (this.ctx) return;
-    this.ctx = new AudioContext({ sampleRate: OUTPUT_RATE });
+    // iOS Safari は sampleRate を強制指定するとノイズ/クラックルが出ることがある
+    // （端末は48kHz動作）。端末既定レートで作り、AudioBuffer(24kHz)の自動リサンプルに任せる。
+    this.ctx = new AudioContext();
     await this.ctx.resume();
+  }
+
+  private decodeChunk(b64: string) {
+    const bin = atob(b64);
+    const prev = this.carry ? this.carry.length : 0;
+    const bytes = new Uint8Array(prev + bin.length);
+    if (this.carry) bytes.set(this.carry, 0);
+    for (let i = 0; i < bin.length; i++) bytes[prev + i] = bin.charCodeAt(i);
+    const usable = bytes.length - (bytes.length % 2);
+    this.carry = usable < bytes.length ? bytes.slice(usable) : null;
+    // 16bit リトルエンディアン PCM → Float32（-1〜1）
+    const out = new Float32Array(usable / 2);
+    for (let i = 0; i < out.length; i++) {
+      let v = bytes[2 * i] | (bytes[2 * i + 1] << 8);
+      if (v >= 0x8000) v -= 0x10000;
+      out[i] = v / 0x8000;
+    }
+    return out;
   }
 
   /** ユーザー操作直後に呼んで再生を解禁する（iOS対策） */
@@ -32,7 +44,7 @@ export class PcmPlayer {
 
   enqueue(base64Pcm: string): void {
     if (!this.ctx) return;
-    const data = base64ToFloat32(base64Pcm);
+    const data = this.decodeChunk(base64Pcm);
     if (data.length === 0) return;
     const buf = this.ctx.createBuffer(1, data.length, OUTPUT_RATE);
     buf.copyToChannel(data, 0);
@@ -57,6 +69,7 @@ export class PcmPlayer {
     }
     this.sources.clear();
     this.nextTime = 0;
+    this.carry = null;
   }
 
   /** 再生中かどうか（おおまか） */
