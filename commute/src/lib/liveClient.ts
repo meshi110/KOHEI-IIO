@@ -24,6 +24,35 @@ export interface LiveCallbacksApp {
 
 const MAX_RECONNECTS = 4;
 
+/** 聞き流しモード: AIの発話が終わり無音がこの時間続いたら、次のコーナーを促す */
+const CONTINUE_GAP_MS = 1200;
+/** ユーザーが話した直後はこの時間は促さない（AIの返答を待つ） */
+const USER_GRACE_MS = 5000;
+/** 促した後、返答が来ないまま待つ上限（過ぎたら再度促せる） */
+const NUDGE_TIMEOUT_MS = 15000;
+
+/** 「Wait」だけの発話（一時停止）。"Wait, what?" のような質問は含めない */
+const WAIT_ONLY_RE =
+  /^\W*(?:ok(?:ay)?\W+)?(?:wait|hold on)(?:\W+(?:a\W+)?(?:sec(?:ond)?|minute|moment))?\W*$/i;
+const RESUME_RE = /\b(?:go|continue|carry on|resume)\b/i;
+
+/**
+ * アプリからAIへの合図。Live API はターン制で、AIは入力が無いと黙って待つため、
+ * 最初の一声と聞き流しの継続はアプリが促す。[app note] は読み上げないようシステム指示済み。
+ */
+export const APP_CUES = {
+  morningStart: "The session has started and Kohei is ready. Greet him now and begin.",
+  listenStart:
+    "The listening program starts now. Give a one-line greeting, then go straight into your first segment.",
+  listenContinue:
+    "Continue the program: go straight into the next segment. Do not greet again and do not wait for an answer.",
+};
+
+export interface LiveOptions {
+  /** 聞き流しモード: AIが話し終えて無音が続いたら自動で次を促す */
+  autoContinue?: boolean;
+}
+
 export class LiveConversation {
   private session: Session | null = null;
   private state: LiveState = "connecting";
@@ -35,6 +64,15 @@ export class LiveConversation {
   private outputBuf = "";
   private finishPending = false;
   private triedVoiceFallback = false;
+  // 聞き流しモードの自動継続用の状態
+  private paused = false;
+  private modelTurnOpen = false;
+  private modelSpokeOnce = false;
+  private awaitingModel = false;
+  private nudgedAt = 0;
+  private quietSince = 0;
+  private lastUserSpeechAt = 0;
+  private tickIv: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private tokenName: string,
@@ -44,6 +82,7 @@ export class LiveConversation {
     private cb: LiveCallbacksApp,
     /** 教師ごとのプリセットボイス名（無効だった場合は自動で標準音声に落とす） */
     private voiceName: string | null = null,
+    private opts: LiveOptions = {},
   ) {}
 
   get currentState(): LiveState {
@@ -84,7 +123,13 @@ export class LiveConversation {
         },
       });
       this.reconnects = 0;
+      // 再接続で途中のターンが途切れていても、自動継続が止まったままにならないようにする
+      this.modelTurnOpen = false;
+      this.awaitingModel = false;
       this.setState("live");
+      if (this.opts.autoContinue && !this.tickIv) {
+        this.tickIv = setInterval(() => this.tick(), 500);
+      }
     } catch (e) {
       // プリセットボイス名が原因で接続できない場合は、標準音声で一度だけ再試行
       if (this.voiceName && !this.triedVoiceFallback) {
@@ -144,18 +189,23 @@ export class LiveConversation {
       // 割り込み: 再生キューを即クリア、途中までのAI発話は確定して保存
       this.player.clear();
       this.flushAi();
+      this.modelTurnOpen = false;
       return;
     }
 
     if (sc.interimInputTranscription?.text) {
       this.cb.onCaption(sc.interimInputTranscription.text);
+      this.lastUserSpeechAt = Date.now();
     }
     if (sc.inputTranscription?.text) {
       this.inputBuf += sc.inputTranscription.text;
       this.cb.onCaption(this.inputBuf);
+      this.lastUserSpeechAt = Date.now();
+      this.updatePause(this.inputBuf);
     }
     if (sc.outputTranscription?.text) {
       this.outputBuf += sc.outputTranscription.text;
+      this.noteModelActivity();
     }
 
     const parts = sc.modelTurn?.parts ?? [];
@@ -163,10 +213,12 @@ export class LiveConversation {
       const data = p.inlineData?.data;
       if (typeof data === "string" && data.length > 0) {
         this.player.enqueue(data);
+        this.noteModelActivity();
       }
     }
 
     if (sc.turnComplete) {
+      this.modelTurnOpen = false;
       this.flushUser();
       const aiFlushed = this.flushAi();
       if (this.finishPending && aiFlushed) {
@@ -186,6 +238,65 @@ export class LiveConversation {
     // 音声コマンド "Finish"（短い発話に限定して誤発火を防ぐ）
     if (text.length <= 40 && /\bfinish\b/i.test(text)) {
       this.finishPending = true;
+    }
+    // 「Wait」だけの発話でない限り、話しかけた時点で一時停止は解除
+    if (!WAIT_ONLY_RE.test(text)) this.paused = false;
+  }
+
+  private noteModelActivity(): void {
+    this.modelTurnOpen = true;
+    this.modelSpokeOnce = true;
+    this.awaitingModel = false;
+  }
+
+  /** "Wait" で一時停止、"Go" で再開（聞き流しモードの自動継続を止める/戻す） */
+  private updatePause(text: string): void {
+    const t = text.trim();
+    if (WAIT_ONLY_RE.test(t)) this.paused = true;
+    else if (t.length <= 30 && RESUME_RE.test(t)) this.paused = false;
+  }
+
+  /**
+   * 聞き流しモードの自動継続。AIの発話と再生が終わり、ユーザーも話していない
+   * 無音が続いたら、次のコーナーを促す。
+   */
+  private tick(): void {
+    if (!this.opts.autoContinue || this.state !== "live" || !this.session) return;
+    if (this.paused || this.finishPending) return;
+    const now = Date.now();
+    if (this.player.speaking || this.modelTurnOpen) {
+      this.quietSince = 0;
+      return;
+    }
+    if (this.awaitingModel && now - this.nudgedAt < NUDGE_TIMEOUT_MS) return;
+    if (now - this.lastUserSpeechAt < USER_GRACE_MS) {
+      this.quietSince = 0;
+      return;
+    }
+    if (this.quietSince === 0) {
+      this.quietSince = now;
+      return;
+    }
+    if (now - this.quietSince < CONTINUE_GAP_MS) return;
+    this.promptNow(this.modelSpokeOnce ? APP_CUES.listenContinue : APP_CUES.listenStart);
+  }
+
+  /**
+   * テキストの1ターンを送り、AIに話し始めさせる（最初の一声・聞き流しの継続）。
+   * ユーザーの発話ではないので turns（文字起こし保存）には入らない。
+   */
+  promptNow(note: string): void {
+    if (this.state !== "live" || !this.session) return;
+    try {
+      this.session.sendClientContent({
+        turns: [{ role: "user", parts: [{ text: `[app note: ${note}]` }] }],
+        turnComplete: true,
+      });
+      this.awaitingModel = true;
+      this.nudgedAt = Date.now();
+      this.quietSince = 0;
+    } catch {
+      /* 接続断の瞬間は捨てる（再接続後に自動継続が再度促す） */
     }
   }
 
@@ -219,6 +330,10 @@ export class LiveConversation {
 
   close(): void {
     this.intentionalClose = true;
+    if (this.tickIv) {
+      clearInterval(this.tickIv);
+      this.tickIv = null;
+    }
     // 未確定の発話を確定して取りこぼさない
     this.flushUser();
     this.flushAi();
