@@ -36,6 +36,29 @@ describe("buildSystemInstruction（通常レッスン）", () => {
   });
 });
 
+describe("教師の名前ルール（AIだから名前はない、と役を降りない）", () => {
+  it("単独の日: 名前を名乗り、名前を否定しない指示が入る", () => {
+    const block = buildTeacherBlock(teachersForDate("2026-11-02")); // 月曜 = Emma
+    expect(block).toContain("NAME AND IDENTITY");
+    expect(block).toContain("Dr. Emma Clarke");
+    expect(block).toContain('"Emma"');
+    expect(block).toContain("NEVER say you have no name");
+    // AIであることは正直に認めてよい（人間のふりはさせない）
+    expect(block).toContain("He knows you are an AI");
+  });
+  it("金曜パネル: 2人とも自分の名前で応答する指示が入る", () => {
+    const a = teachersForDate("2026-11-06"); // 金曜
+    const block = buildTeacherBlock(a);
+    expect(block).toContain("NAME AND IDENTITY");
+    for (const t of a.teachers) expect(block).toContain(t.name);
+    expect(block).toContain("Each teacher answers to their own name");
+  });
+  it("聞き流しモードにも名前ルールが入る", () => {
+    const s = buildListenSystemInstruction(materials("2026-11-02"));
+    expect(s).toContain("NEVER say you have no name");
+  });
+});
+
 describe("buildListenSystemInstruction（聞き流しモード）", () => {
   it("ラジオ形式・Finishで終了・発話を強要しない", () => {
     const s = buildListenSystemInstruction(materials("2026-11-02"));
