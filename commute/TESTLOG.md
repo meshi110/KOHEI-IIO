@@ -11,7 +11,7 @@
   - `LiveServerMessage`: `serverContent{modelTurn, turnComplete, interrupted, generationComplete, inputTranscription{text,finished}, interimInputTranscription, outputTranscription}` / `goAway{timeLeft}` / `sessionResumptionUpdate{newHandle, resumable}`。
   - `session.sendRealtimeInput({audio:{data,mimeType}} | {text})`。
 - 🚫 **ai.google.dev の直接閲覧**: この開発環境からはDNS遮断で不可。モデル名は WebSearch で確認：公式モデルページ最新は `gemini-3.8-live`（`gemini-3.1-flash-live-preview` はlegacy表示）、テキストは `gemini-3.8-flash`。ソース間に鮮度差があるため**両方とも環境変数で差し替え可能**にした。→ 初回デプロイ時に AI Studio で実在確認すること（SETUP.md 手順5）。
-- ✅ **エフェメラルトークンの設計判断**: `liveConnectConstraints` はモデルのみ固定し、config は固定しない（sessionResumption の handle が再接続ごとに変わるため、config固定は再接続と干渉する恐れ。仕様書3からの意図的な変更）。
+- ❌→✅ **エフェメラルトークンの設計判断（2026-11-07 訂正）**: 当初「`liveConnectConstraints` はモデルのみ固定し、config は固定しない」と記録したが、これは誤読だった。SDK の authTokens.create の説明（Case 2）どおり、`liveConnectConstraints` を設定するとモデルだけを指定しても**接続設定の全項目がトークン側の内容でロックされ、クライアントの systemInstruction・声の指定が無視される**。実機で教師が「Hello! How can I help you today?」「I do not have a name. I'm a large language model, trained by Google.」と汎用アシスタントとして振る舞い、ニュースも知らなかったのはこれが原因（AI発話110回中「Kohei」0回）。→ `liveConnectConstraints` を外して修正（Case 1: 接続ごとにクライアント設定を使う）。代わりに、トークンはログイン済みユーザーにのみ発行・uses:1・新規接続5分以内で悪用の余地を抑える。
 
 ## 1. ユニットテスト（65件 全通過・このリポジトリで再現可能）
 
@@ -57,6 +57,9 @@ cd commute && npm test
 - ✅ 修正済: 教師が「AIだから名前はない」と言い張る（AIと承知で付けた名前だと明示）
 - ✅ 修正済: 聞き流しなのに黙って待つ（Live APIはターン制。アプリが無音を見張り次を促す）／Start後に先生から話し始める
 - ✅ 解決: Gemini 429 は無料枠の上限。AI Pro の月$10 APIクレジットを有効化し課金紐付けで解消（2026-11-07 ブリーフィング生成成功を確認）
+- ✅ 修正済（根本原因）: プロンプト（教師の人格・ニュース・進め方・英語限定・名前）がAIに一度も届いていなかった。エフェメラルトークンの `liveConnectConstraints` が接続設定を全ロックしていたため（上の0節の訂正参照）。上記の「名前がない」「他言語」「ニュースを知らない」はすべてこれが原因
+- ⬜ 再確認（最重要）: Start 後の第一声で先生が自分の名前（例: Emma）を名乗り、今日のニュースに触れる
+- ⬜ 再確認: 先生ごとに声が変わる（声の指定も今まで無視されていた）
 - ⬜ 再確認: 聞き流しで、黙っていても約3秒の間をおいて次のコーナーが続く／Wait で止まり Go で再開する
 - ⬜ 再確認: Start を押すと、こちらが話さなくても先生が挨拶して始める
 - ⬜ 再確認: 名前で呼ぶと応じ、「AI?」と聞くと正直に認めつつ名前を名乗る
