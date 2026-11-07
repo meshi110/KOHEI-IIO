@@ -9,6 +9,29 @@ export function geminiClient(): GoogleGenAI {
   return new GoogleGenAI({ apiKey: ENV.GEMINI_API_KEY });
 }
 
+/** 429のSDK内部リトライ等でサーバー関数が固まらないよう、処理に上限時間を設ける */
+export class GeminiTimeoutError extends Error {
+  constructor(ms: number) {
+    super(`gemini call timed out after ${ms}ms`);
+    this.name = "GeminiTimeoutError";
+  }
+}
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new GeminiTimeoutError(ms)), ms);
+    p.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
+}
+
 /**
  * エフェメラルトークン発行（v1alpha限定・@experimental）
  * @param expireMinutes トークン有効期限（分）。通常セッション45分、聞き流しは長距離移動
@@ -36,9 +59,9 @@ export async function createEphemeralToken(liveModel: string, expireMinutes = 45
 }
 
 /** 解析（Structured Outputs）。summary/errors/new_cards/card_results を返す */
-export async function runAnalysis(prompt: string): Promise<AnalysisOutput> {
+export async function runAnalysis(prompt: string, timeoutMs = 20000): Promise<AnalysisOutput> {
   const ai = geminiClient();
-  const resp = await ai.models.generateContent({
+  const resp = await withTimeout(ai.models.generateContent({
     model: ENV.TEXT_MODEL,
     contents: prompt,
     config: {
@@ -91,7 +114,7 @@ export async function runAnalysis(prompt: string): Promise<AnalysisOutput> {
         required: ["summary", "errors", "new_cards", "card_results"],
       },
     },
-  });
+  }), timeoutMs);
   const text = resp.text;
   if (!text) throw new Error("analysis returned empty response");
   return JSON.parse(text) as AnalysisOutput;

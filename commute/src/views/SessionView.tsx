@@ -246,8 +246,11 @@ export default function SessionView({
       setPhase("done");
       if (fromDisconnect) setErr("接続が切断されたため終了しました。記録は保存されています。");
     } catch (e) {
-      setErr(String(e instanceof Error ? e.message : e));
-      setPhase("error");
+      // 会話記録はセッション中に逐次保存済み。解析の失敗/タイムアウトでは固めず、
+      // 完了画面に進めて「記録は保存された」ことを伝える。
+      const msg = e instanceof Error ? e.message : String(e);
+      setResult({ analyzed: false, reason: msg === "timeout" ? "client_timeout" : "end_error" });
+      setPhase("done");
     } finally {
       endingRef.current = false;
       sessionId.current = null;
@@ -356,8 +359,10 @@ export default function SessionView({
             指摘 {result.errors_saved ?? 0} 件 ・ 新カード {result.new_cards ?? 0} 枚 ・ 復習更新{" "}
             {result.cards_updated ?? 0} 枚
           </p>
-        ) : (
+        ) : result?.reason === "no user turns" ? (
           <p className="dim">発話がなかったため解析をスキップしました</p>
+        ) : (
+          <p className="dim">会話の記録は保存されました。今回の解析は後ほど行われます。</p>
         )}
         {err && <p className="err">{err}</p>}
         <button

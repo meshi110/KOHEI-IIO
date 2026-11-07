@@ -1,16 +1,27 @@
 import { accessToken } from "./supabase";
 
-async function call<T>(path: string, body: unknown): Promise<T> {
+async function call<T>(path: string, body: unknown, timeoutMs = 20000): Promise<T> {
   const token = await accessToken();
   if (!token) throw new Error("not logged in");
-  const r = await fetch(path, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(body),
-  });
+  const ctrl = new AbortController();
+  const timer = window.setTimeout(() => ctrl.abort(), timeoutMs);
+  let r: Response;
+  try {
+    r = await fetch(path, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+      signal: ctrl.signal,
+    });
+  } catch (e) {
+    if (ctrl.signal.aborted) throw new Error("timeout");
+    throw e;
+  } finally {
+    window.clearTimeout(timer);
+  }
   const data = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
   if (!r.ok || data.error) throw new Error(data.error || `HTTP ${r.status}`);
   return data as T;
@@ -47,5 +58,5 @@ export const api = {
       new_cards?: number;
       cards_updated?: number;
       reason?: string;
-    }>("/api/session/end", { session_id }),
+    }>("/api/session/end", { session_id }, 40000), // サーバー解析(最大30秒)+余裕
 };
