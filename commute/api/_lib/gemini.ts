@@ -37,8 +37,15 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
  * @param expireMinutes トークン有効期限（分）。通常セッション45分、聞き流しは長距離移動
  *   （サッカー帯同 片道2時間）に合わせて延長する。再接続はこのトークンで新規接続するため、
  *   期限が切れると約10分ごとの再接続が失敗する。
+ *
+ * liveConnectConstraints は設定しないこと。設定するとモデルだけを指定しても
+ * 接続設定の全項目がトークン側の内容でロックされ、クライアントが送る
+ * systemInstruction（教師の人格・ニュース・進め方）や声の指定がサーバーに無視される
+ * （SDK authTokens.create の Case 2）。実機で教師が汎用アシスタントとして振る舞った原因。
+ * ロックしない代わりに、トークンはログイン済みユーザーにだけ発行し、
+ * uses:1・新規接続は5分以内に限ることで悪用の余地を最小にしている。
  */
-export async function createEphemeralToken(liveModel: string, expireMinutes = 45): Promise<string> {
+export async function createEphemeralToken(expireMinutes = 45): Promise<string> {
   const ai = new GoogleGenAI({
     apiKey: ENV.GEMINI_API_KEY,
     httpOptions: { apiVersion: "v1alpha" },
@@ -49,9 +56,6 @@ export async function createEphemeralToken(liveModel: string, expireMinutes = 45
       uses: 1, // 再接続(resume)は使用回数にカウントされない（SDKドキュメント）
       expireTime: new Date(now + expireMinutes * 60 * 1000).toISOString(),
       newSessionExpireTime: new Date(now + 5 * 60 * 1000).toISOString(), // 新規接続は5分以内に
-      // モデルをトークン側で固定する。config の固定は sessionResumption の handle が
-      // 再接続ごとに変わるため行わない（固定すると再接続時に不一致になる恐れがある）。
-      liveConnectConstraints: { model: liveModel },
     },
   });
   if (!token.name) throw new Error("ephemeral token creation returned no name");

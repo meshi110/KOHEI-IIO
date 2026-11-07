@@ -149,9 +149,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .single();
     if (ses.error) throw ses.error;
 
-    // エフェメラルトークン（uses:1 / モデル固定）
+    // エフェメラルトークン（uses:1）。接続設定はロックしない（gemini.ts の注記参照）
     // 聞き流しはサッカー帯同（片道2時間）まで持つよう150分。通常は45分（仕様書3）
-    const token = await createEphemeralToken(ENV.LIVE_MODEL, mode === "listen" ? 150 : 45);
+    const token = await createEphemeralToken(mode === "listen" ? 150 : 45);
 
     res.status(200).json({
       session_id: ses.data.id,
