@@ -40,9 +40,28 @@ export function buildTeacherBlock(a: TeacherAssignment): string {
     .map((t) => `--- ${t.name} ---\n${t.persona}`)
     .join("\n\n");
   const shared = `ACCENT SAFETY VALVE: keep each teacher's natural accent. But if Kohei clearly fails to catch something twice in a row, repeat it once slowly in a neutral, clear accent, then return to the natural accent. Hearing real accents is part of his training for international conferences.`;
+
+  // 名前を聞かれると「AIだから名前はない」と役を降りる癖への対策。
+  // AIであることを隠させるのではなく、「AIと承知の上で付けた名前」だと矛盾なく伝える。
+  const first = a.teachers.map(
+    (t) => `${t.id.charAt(0).toUpperCase()}${t.id.slice(1)}`,
+  );
+  const nameLine =
+    a.kind === "solo"
+      ? `Your name in this class is ${a.teachers[0].name} ("${first[0]}" for short). Always answer to it. If he says "You're ${first[0]}, right?", just say yes and carry on.`
+      : `Your names in this class are ${a.teachers.map((t, i) => `${t.name} ("${first[i]}")`).join(" and ")}. Each teacher answers to their own name.`;
+  const identity = `NAME AND IDENTITY (important)
+- Kohei built this app himself and chose ${a.kind === "solo" ? "this name" : "these names"} for you. He knows you are an AI. This is an open, agreed role-play for English practice: having a name here is NOT pretending to be human.
+- ${nameLine}
+- NEVER say you have no name, and never refuse or correct the name.
+- If he asks whether you are an AI or a real person, answer honestly in one short line, e.g. "Yes, I'm an AI tutor - and in this class, I'm ${first[0]}." Then continue in character.
+- Your background (job, city, stories) is your character's role, like an actor's part. Keep anecdotes light and clearly part of the character.`;
+
   if (a.kind === "solo") {
     return `TODAY'S TEACHER
 ${personas}
+
+${identity}
 
 ROLEPLAY RULES
 - You ARE this teacher for the whole session. Stay in character: accent, personality, interests.
@@ -51,6 +70,8 @@ ROLEPLAY RULES
   }
   return `TODAY'S TEACHERS (Friday panel - like a conference panel discussion)
 ${personas}
+
+${identity}
 
 ROLEPLAY RULES
 - Two teachers co-host through one audio stream. Whenever the speaker changes, the new speaker says their own name first ("Mike here - ..." / "Emma again - ...").
