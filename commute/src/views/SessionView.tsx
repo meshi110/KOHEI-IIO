@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { supabase } from "../lib/supabase";
-import { LiveConversation, type LiveState } from "../lib/liveClient";
+import { APP_CUES, LiveConversation, type LiveState } from "../lib/liveClient";
 import { MicCapture } from "../lib/audio/mic";
 import { PcmPlayer } from "../lib/audio/playback";
 import { jstDatePlusDays, jstToday } from "../../shared/leitner";
@@ -186,11 +186,17 @@ export default function SessionView({
           onError: (m) => setErr(m),
         },
         s.teacher?.voice ?? null,
+        { autoContinue: startMode === "listen" },
       );
       await conv.current.connect();
 
       mic.current = new MicCapture();
       await mic.current.start((b64) => conv.current?.sendAudioChunk(b64));
+
+      // 先生から話し始める（走行中は画面に触れない前提。黙って待たせない）
+      conv.current.promptNow(
+        startMode === "listen" ? APP_CUES.listenStart : APP_CUES.morningStart,
+      );
 
       const startedAt = Date.now();
       timerIv.current = window.setInterval(() => {
