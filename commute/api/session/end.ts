@@ -7,6 +7,9 @@ import { computeMetrics } from "../../shared/metrics";
 import { jstToday, nextBox, nextDueDate } from "../../shared/leitner";
 import type { AnalysisOutput, Turn } from "../../shared/types";
 
+// 解析(Gemini)が遅くても関数が余裕を持って応答を返せるように上限を伸ばす
+export const config = { maxDuration: 30 };
+
 /**
  * POST /api/session/end
  * セッションを終了扱いにし、解析を実行して weaknesses / cards / metrics を更新する。
@@ -86,8 +89,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       analysis = await runAnalysis(buildAnalysisPrompt(transcript, dueCards));
     } catch (e) {
-      await db.from("sessions").update({ status: "failed" }).eq("id", sessionId);
-      res.status(500).json({ error: "analysis failed: " + String(e instanceof Error ? e.message : e) });
+      // 解析は失敗しても会話記録とメトリクスは守る。
+      // status は "ended"（解析待ち）のままにして、後で再解析できるようにする。
+      // 完了画面には必ず進めるよう 200 を返す（仕様書4: 計算できた値は返す）。
+      await db.from("sessions").update({ status: "ended", summary: null }).eq("id", sessionId);
+      res.status(200).json({
+        analyzed: false,
+        reason: "analysis_unavailable",
+        metrics,
+      });
       return;
     }
 
