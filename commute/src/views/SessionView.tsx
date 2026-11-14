@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { supabase } from "../lib/supabase";
 import { APP_CUES, LiveConversation, type LiveState } from "../lib/liveClient";
-import { MicCapture } from "../lib/audio/mic";
+import { MicCapture, micGateEnabled } from "../lib/audio/mic";
+import { describeLiveError } from "../lib/liveErrors";
 import { PcmPlayer } from "../lib/audio/playback";
 import { jstDatePlusDays, jstToday } from "../../shared/leitner";
 import { weekdayStreak } from "../../shared/streak";
@@ -89,6 +90,8 @@ export default function SessionView({
   const timerIv = useRef<number | null>(null);
   const noteSent = useRef(false);
   const endingRef = useRef(false);
+  /** 直近のGeminiエラー原文（終了画面で原因として出す） */
+  const lastErrRef = useRef<string | null>(null);
 
   // 今日のブリーフィングのタイトル（小さく表示：仕様書5）
   useEffect(() => {
@@ -153,6 +156,7 @@ export default function SessionView({
 
   async function start(startMode: "morning" | "listen" = "morning") {
     setErr(null);
+    lastErrRef.current = null;
     setMode(startMode);
     setPhase("starting");
     try {
@@ -183,15 +187,25 @@ export default function SessionView({
           onCaption: (t) => setCaption(t),
           onTurn: (t) => pushTurn(t),
           onAutoFinish: () => void end(),
-          onError: (m) => setErr(m),
+          onError: (m) => {
+            lastErrRef.current = m;
+            setErr(describeLiveError(m));
+          },
         },
         s.teacher?.voice ?? null,
         { autoContinue: startMode === "listen" },
       );
       await conv.current.connect();
 
+      // 接続に失敗して既に終了処理へ進んでいる場合は、マイクを起動しない
+      // （以前は終了後にマイクが起動し、続く promptNow が null 参照で落ちていた）
+      if (endingRef.current || !conv.current || conv.current.currentState !== "live") return;
+
       mic.current = new MicCapture();
-      await mic.current.start((b64) => conv.current?.sendAudioChunk(b64));
+      await mic.current.start((b64) => conv.current?.sendAudioChunk(b64), {
+        gate: micGateEnabled(),
+        onStreamEnd: () => conv.current?.sendAudioStreamEnd(),
+      });
 
       // 先生から話し始める（走行中は画面に触れない前提。黙って待たせない）
       conv.current.promptNow(
@@ -223,6 +237,11 @@ export default function SessionView({
       clearInterval(timerIv.current);
       timerIv.current = null;
     }
+    const ratio = mic.current?.sentRatio;
+    if (ratio != null) {
+      // 費用対策の効果確認用（実測値。保存はしない）
+      console.info(`[mic] 送信した音声の割合: ${(ratio * 100).toFixed(1)}%`);
+    }
     mic.current?.stop();
     mic.current = null;
     conv.current?.close();
@@ -238,6 +257,8 @@ export default function SessionView({
     if (endingRef.current) return;
     endingRef.current = true;
     setPhase("ending");
+    // cleanup で conv が消える前に、切断の本当の原因を取っておく
+    const cause = describeLiveError(conv.current?.lastError ?? lastErrRef.current);
     cleanup();
     try {
       // 未送信ターンを最後まで送る（最大3回試行）
@@ -250,7 +271,12 @@ export default function SessionView({
       const r = await api.end(sessionId.current);
       setResult(r);
       setPhase("done");
-      if (fromDisconnect) setErr("接続が切断されたため終了しました。記録は保存されています。");
+      if (fromDisconnect) {
+        setErr(
+          "接続が切断されたため終了しました。記録は保存されています。" +
+            (cause ? `\n原因: ${cause}` : ""),
+        );
+      }
     } catch (e) {
       // 会話記録はセッション中に逐次保存済み。解析の失敗/タイムアウトでは固めず、
       // 完了画面に進めて「記録は保存された」ことを伝える。

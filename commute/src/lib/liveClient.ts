@@ -8,6 +8,7 @@ import { GoogleGenAI, Modality } from "@google/genai";
 import type { LiveServerMessage, Session } from "@google/genai";
 import { PcmPlayer } from "./audio/playback";
 import { MIC_MIME } from "./audio/mic";
+import { closeEventMessage } from "./liveErrors";
 
 export type LiveState = "connecting" | "live" | "reconnecting" | "closed";
 
@@ -73,6 +74,8 @@ export class LiveConversation {
   private quietSince = 0;
   private lastUserSpeechAt = 0;
   private tickIv: ReturnType<typeof setInterval> | null = null;
+  /** 直近のエラー（接続失敗・切断理由）。終了画面で原因を出すために保持する */
+  private lastErrorMsg: string | null = null;
 
   constructor(
     private tokenName: string,
@@ -87,6 +90,15 @@ export class LiveConversation {
 
   get currentState(): LiveState {
     return this.state;
+  }
+
+  get lastError(): string | null {
+    return this.lastErrorMsg;
+  }
+
+  private reportError(message: string): void {
+    this.lastErrorMsg = message;
+    this.cb.onError(message);
   }
 
   private setState(s: LiveState) {
@@ -117,9 +129,9 @@ export class LiveConversation {
         callbacks: {
           onmessage: (m: LiveServerMessage) => this.onMessage(m),
           onerror: (e: ErrorEvent) => {
-            this.cb.onError(e.message || "connection error");
+            this.reportError(e.message || "connection error");
           },
-          onclose: () => this.onClose(),
+          onclose: (e: CloseEvent) => this.onClose(e),
         },
       });
       this.reconnects = 0;
@@ -138,25 +150,32 @@ export class LiveConversation {
         await this.connect();
         return;
       }
-      this.cb.onError(String(e instanceof Error ? e.message : e));
+      this.reportError(String(e instanceof Error ? e.message : e));
       await this.tryReconnect();
     }
   }
 
-  private onClose(): void {
+  private onClose(e?: { code?: number; reason?: string }): void {
     this.session = null;
     if (this.intentionalClose) {
       this.setState("closed");
       return;
     }
+    // 切断理由（例: クレジット枯渇・クォータ）を捨てずに記録する
+    const why = closeEventMessage(e);
+    if (why) this.reportError(why);
     void this.tryReconnect();
   }
 
   private async tryReconnect(): Promise<void> {
     if (this.intentionalClose) return;
     if (this.reconnects >= MAX_RECONNECTS) {
+      // 上限到達の文言で本当の原因を上書きしない（lastError は直前の原因のまま）
+      const cause = this.lastErrorMsg;
+      this.cb.onError(
+        cause ? `再接続に失敗しました（上限到達）。原因: ${cause}` : "再接続に失敗しました（上限到達）",
+      );
       this.setState("closed");
-      this.cb.onError("再接続に失敗しました（上限到達）");
       return;
     }
     this.reconnects += 1;
@@ -315,6 +334,19 @@ export class LiveConversation {
       this.session.sendRealtimeInput({ audio: { data: base64, mimeType: MIC_MIME } });
     } catch {
       /* 接続断の瞬間は捨てる（再接続後の音声から再開） */
+    }
+  }
+
+  /**
+   * 話し終わってマイク送信を止めたことを伝える（自動の発話区切り検出が既定のため使える）。
+   * 次に音声を送れば自動で再開する（SDK: LiveSendRealtimeInputParameters.audioStreamEnd）。
+   */
+  sendAudioStreamEnd(): void {
+    if (this.state !== "live" || !this.session) return;
+    try {
+      this.session.sendRealtimeInput({ audioStreamEnd: true });
+    } catch {
+      /* 接続断の瞬間は捨てる */
     }
   }
 

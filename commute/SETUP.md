@@ -36,6 +36,7 @@
 | `CRON_SECRET` | ランダムな長い文字列（パスワード生成機で作る） |
 
    （モデル名を変えたいときだけ `GEMINI_LIVE_MODEL` / `GEMINI_TEXT_MODEL` を追加。既定は `gemini-3.8-live` / `gemini-3.8-flash`）
+   （マイク送信ゲートで不具合が出たときだけ `VITE_MIC_GATE` = `off` を追加して Redeploy → 常時送信の従来動作に戻る。費用は増える）
 5. **Deploy** → 完了すると `https://〜.vercel.app` のURLが発行される
 
 ## 4. Cron（朝のブリーフィング）の確認（2分）
